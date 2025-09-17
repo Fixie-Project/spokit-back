@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}회원가입{% endblock %}
+
+{% block content %}
+  <section>
+    <h2>회원가입</h2>
+    <p>커뮤니티 활동을 위해 계정을 만들어 주세요.</p>
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+        <label>
+          {{ field.label_tag }}
+          {{ field }}
+          {% for error in field.errors %}
+            <small class="error">{{ error }}</small>
+          {% endfor %}
+        </label>
+      {% endfor %}
+      <button type="submit">가입하기</button>
+    </form>
+  </section>
+{% endblock %}

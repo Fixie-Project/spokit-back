@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}기어비 계산기{% endblock %}
+
+{% block content %}
+  <section class="gear-calculator">
+    <h2>기어비 계산기</h2>
+    <p>내 픽시 조합으로 기어비, 기어 인치, 롤아웃을 빠르게 계산해보세요.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="grid">
+        <label>
+          {{ form.front_teeth.label_tag }}
+          {{ form.front_teeth }}
+          {% for error in form.front_teeth.errors %}
+            <small class="error">{{ error }}</small>
+          {% endfor %}
+        </label>
+        <label>
+          {{ form.rear_teeth.label_tag }}
+          {{ form.rear_teeth }}
+          {% for error in form.rear_teeth.errors %}
+            <small class="error">{{ error }}</small>
+          {% endfor %}
+        </label>
+        <label>
+          {{ form.wheel_size.label_tag }}
+          {{ form.wheel_size }}
+          {% for error in form.wheel_size.errors %}
+            <small class="error">{{ error }}</small>
+          {% endfor %}
+        </label>
+      </div>
+      <button type="submit">계산하기</button>
+    </form>
+
+    {% if results %}
+      <section class="results">
+        <h3>결과</h3>
+        <ul>
+          <li>기어비: <strong>{{ results.ratio }}</strong></li>
+          <li>기어 인치: <strong>{{ results.gear_inches }}</strong></li>
+          <li>1회 페달 롤아웃: <strong>{{ results.rollout_m }} m</strong></li>
+        </ul>
+      </section>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        POETRY_INSTALL_ARGS: "--no-root --with dev"
+    ports:
+      - "8000:8000"
+    env_file:
+      - envs/dev.env
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fixiehood_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-fixiehood}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fixiehood}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

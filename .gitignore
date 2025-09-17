@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django / Python
+*.log
+local_settings.py
+media/
+staticfiles/
+
+db.sqlite3
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Poetry & packaging
+poetry.toml
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.*
+*.env.local
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+htmlcov/
+.coverage*
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# Docker
+*.pid

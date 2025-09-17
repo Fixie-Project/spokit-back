@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}내 프로필{% endblock %}
+
+{% block content %}
+  <section>
+    <h2>{{ request.user.username }}님의 프로필</h2>
+    <ul>
+      <li>이메일: {{ request.user.email|default:"등록되지 않음" }}</li>
+      <li>이름: {{ request.user.get_full_name|default:"등록되지 않음" }}</li>
+      <li>마지막 로그인: {{ request.user.last_login|date:"Y년 m월 d일 H:i" }}</li>
+    </ul>
+  </section>
+{% endblock %}

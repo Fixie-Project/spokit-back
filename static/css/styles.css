@@ -1,0 +1,84 @@
+body {
+  background-color: #fdfdfd;
+}
+
+header nav ul {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  padding-left: 0;
+}
+
+header nav a {
+  text-decoration: none;
+}
+
+.post-list article,
+.featured-posts article {
+  border: 1px solid #e4e4e4;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #fff;
+}
+
+.post-detail figure img {
+  width: 100%;
+  border-radius: 0.75rem;
+}
+
+.spec-table table {
+  width: 100%;
+}
+
+.spec-table th {
+  width: 30%;
+  text-transform: capitalize;
+}
+
+.tag {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #eef0f7;
+  font-size: 0.85rem;
+}
+
+.tag-cloud .tag {
+  margin-bottom: 0.4rem;
+}
+
+.messages article {
+  margin-bottom: 0.75rem;
+}
+
+.messages .success {
+  background: #d2ffd4;
+}
+
+.messages .info {
+  background: #d9e8ff;
+}
+
+.messages .error {
+  background: #ffe0e0;
+}
+
+.comments article {
+  border-bottom: 1px solid #eee;
+  padding: 1rem 0;
+}
+
+.comments form textarea {
+  min-height: 120px;
+}
+
+.gear-calculator .results ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.grid.featured-posts img {
+  max-height: 200px;
+  object-fit: cover;
+}

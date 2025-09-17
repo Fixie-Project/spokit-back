@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "fixiehood"
+version = "0.1.0"
+description = "Django blog starter"
+package-mode = false
+authors = ["Fixiehood <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+Django = "^5.0"
+psycopg2-binary = "^2.9"
+whitenoise = "^6.6"
+gunicorn = "^21.2"
+pillow = "^11.3.0"
+django-environ = "^0.12.0"
+django-taggit = "^6.1.0"
+djangorestframework = "^3.16.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-django = "^4.8"
+django-debug-toolbar = "^4.3"
+ipython = "^8.20"
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.3.0"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = "tests.py test_*.py *_tests.py"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
