@@ -41,6 +41,7 @@ spokit/
 2. 개발 서버 실행
    ```bash
    poetry run python manage.py migrate
+   poetry run python manage.py createsuperuser
    poetry run python manage.py runserver
    ```
 
@@ -78,6 +79,12 @@ docker compose exec web poetry run pytest
 - 기어비 계산기(`/gear-calc`)와 소개 신청 폼(`/submit`)
 - Django Admin에서 태그/포스트/댓글/좋아요/신청 관리 가능
 - 이메일 기반 회원가입 + 로그인/로그아웃/프로필 페이지 제공
+- 슈퍼유저 전용 관리자 대시보드(`/users/admin/dashboard/`) 제공
+  - 대시보드에서 최근 신청글 확인 및 Django Admin으로 바로 이동
+  - `/posts/new/` 경로에서 신청서를 불러와 게시글을 작성하고 자동 임시저장
+- `/posts/<slug>/edit/`에서 관리자 모드로 게시글을 수정할 수 있으며, 신청서와 연동됩니다.
+- 회원 마이페이지에서 소개 신청 진행 상황·반려 사유·완료된 게시글 확인 및 재수정 가능
+- 소개 신청서는 SNS 링크 중심으로 제출하며, 진행 상태는 자동으로 업데이트
 
 ## 주요 Django 설정
 

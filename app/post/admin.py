@@ -38,6 +38,7 @@ class LikeAdmin(admin.ModelAdmin):
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
     list_display = (
+        "user",
         "submitter_name",
         "submitter_email",
         "status",
@@ -47,3 +48,4 @@ class SubmissionAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("submitter_name", "submitter_email")
     readonly_fields = ("created_at", "reviewed_at")
+    autocomplete_fields = ("user", "reviewer", "result_post")

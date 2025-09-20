@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}소개 신청 검토{% endblock %}
+
+{% block content %}
+  <section>
+    <a href="{% url 'user:admin_dashboard' %}">&larr; 대시보드로 돌아가기</a>
+    <h2>소개 신청 상세</h2>
+    <dl>
+      <dt>제출자</dt>
+      <dd>{{ submission.submitter_name }}</dd>
+      <dt>이메일</dt>
+      <dd>{{ submission.submitter_email }}</dd>
+      <dt>현재 상태</dt>
+      <dd>{{ submission.get_status_display }}</dd>
+      {% if submission.rejection_reason %}
+        <dt>반려 사유</dt>
+        <dd>{{ submission.rejection_reason|linebreaksbr }}</dd>
+      {% endif %}
+      {% if submission.sns_links %}
+        <dt>SNS 링크</dt>
+        <dd>
+          <ul>
+            {% for link in submission.sns_links %}
+              <li><a href="{{ link }}" target="_blank" rel="noopener">{{ link }}</a></li>
+            {% endfor %}
+          </ul>
+        </dd>
+      {% endif %}
+      <dt>신청 메시지</dt>
+      <dd>{{ submission.message|linebreaksbr }}</dd>
+      {% if submission.draft_data %}
+        <dt>임시저장 내용</dt>
+        <dd>
+          <p>최근 제목: {{ submission.draft_data.title|default:"(제목 없음)" }}</p>
+          <p>최근 저장 시각: {{ submission.draft_data.saved_at|default:"-" }}</p>
+        </dd>
+      {% endif %}
+    </dl>
+  </section>
+
+  <section>
+    <h3>관리자 작업</h3>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="start_draft">
+      <button type="submit">포스팅 준비 시작</button>
+      <small>자동 임시저장과 함께 게시글 작성 화면으로 이동합니다.</small>
+    </form>
+
+    <p>
+      {% if submission.result_post %}
+        <a href="{% url 'post:edit' submission.result_post.slug %}?submission={{ submission.pk }}" role="button" class="contrast">게시글 수정하기</a>
+        <a href="{{ submission.result_post.get_absolute_url }}" role="button">게시글 확인</a>
+      {% else %}
+        <a href="{% url 'post:create' %}?submission={{ submission.pk }}" role="button" class="contrast">바로 글 작성하기</a>
+      {% endif %}
+    </p>
+
+    <form method="post" class="reject-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reject">
+      <label for="id_rejection_reason">반려 사유</label>
+      <textarea id="id_rejection_reason" name="rejection_reason" rows="4" placeholder="반려 사유를 입력해 주세요.">{{ submission.rejection_reason }}</textarea>
+      <button type="submit" class="secondary">반려 처리</button>
+    </form>
+  </section>
+{% endblock %}

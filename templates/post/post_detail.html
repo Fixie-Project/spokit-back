@@ -10,6 +10,11 @@
         <small>
           게시 {{ post.published_at|date:"Y년 m월 d일" }} · 업데이트 {{ post.updated_at|date:"Y년 m월 d일" }}
           {% if post.author %} · 운영자 {{ post.author }}{% endif %}
+          {% if request.user.is_superuser %}
+            {% with submission=post.source_submissions.first %}
+              · <a href="{% url 'post:edit' post.slug %}{% if submission %}?submission={{ submission.pk }}{% endif %}">관리자 수정</a>
+            {% endwith %}
+          {% endif %}
         </small>
       </p>
       <p class="tags">
@@ -48,14 +53,20 @@
     </section>
 
     <section class="interactions">
-      <form method="post" action="{% url 'post:toggle_like' post.slug %}">
-        {% csrf_token %}
-        {% if user_liked %}
-          <button type="submit" class="secondary">좋아요 취소 ({{ like_count }})</button>
-        {% else %}
-          <button type="submit">좋아요 ({{ like_count }})</button>
-        {% endif %}
-      </form>
+      {% if request.user.is_authenticated %}
+        <form method="post" action="{% url 'post:toggle_like' post.slug %}">
+          {% csrf_token %}
+          {% if user_liked %}
+            <button type="submit" class="secondary">좋아요 취소 ({{ like_count }})</button>
+          {% else %}
+            <button type="submit">좋아요 ({{ like_count }})</button>
+          {% endif %}
+        </form>
+      {% else %}
+        <p>
+          좋아요는 회원 전용 기능입니다. <a href="{% url 'user:login' %}?next={{ request.path }}">로그인</a> 후 이용해 주세요.
+        </p>
+      {% endif %}
     </section>
   </article>
 

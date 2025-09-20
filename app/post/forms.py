@@ -1,16 +1,14 @@
-"""Forms for post-related interactions."""
+"""게시글 기능에 쓰이는 폼 모음입니다."""
 from __future__ import annotations
 
 import math
-from typing import Any
-
 from django import forms
 
-from .models import Comment, Submission
+from .models import Comment, Post, PostStatus, Submission
 
 
 class CommentForm(forms.ModelForm):
-    """Simple textarea form for comments."""
+    """댓글 내용을 입력하는 폼입니다."""
 
     class Meta:
         model = Comment
@@ -27,48 +25,18 @@ class CommentForm(forms.ModelForm):
 
 
 class SubmissionForm(forms.ModelForm):
-    """Form for build introduction submissions."""
+    """소개 신청서를 작성하는 폼입니다."""
 
-    links_raw = forms.CharField(
-        label="참고 링크",
+    sns_links_raw = forms.CharField(
+        label="SNS 링크",
         required=False,
         widget=forms.Textarea(
             attrs={
                 "rows": 3,
-                "placeholder": "Instagram, Blog, Youtube 링크 등을 줄바꿈으로 입력",
+                "placeholder": "Instagram, Blog, YouTube 등 SNS 링크를 줄바꿈으로 입력",
             }
         ),
         help_text="각 줄마다 하나의 링크를 입력하세요.",
-    )
-    photos_raw = forms.CharField(
-        label="사진 링크",
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "rows": 3,
-                "placeholder": "사진 또는 드라이브 링크를 줄바꿈으로 입력",
-            }
-        ),
-    )
-    front_teeth = forms.IntegerField(
-        label="앞 톱니 수",
-        min_value=1,
-        required=False,
-    )
-    rear_teeth = forms.IntegerField(
-        label="뒤 톱니 수",
-        min_value=1,
-        required=False,
-    )
-    wheel_size = forms.ChoiceField(
-        label="휠 사이즈",
-        required=False,
-        choices=[
-            ("", "선택안함"),
-            ("700c", "700C (622mm)"),
-            ("650c", "650C (571mm)"),
-            ("26", "26인치 (559mm)"),
-        ],
     )
 
     class Meta:
@@ -87,35 +55,60 @@ class SubmissionForm(forms.ModelForm):
             "message": forms.Textarea(attrs={"rows": 6}),
         }
 
-    def clean_links_raw(self) -> list[str]:
-        return _split_lines(self.cleaned_data.get("links_raw"))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["sns_links_raw"].initial = "\n".join(self.instance.sns_links or [])
 
-    def clean_photos_raw(self) -> list[str]:
-        return _split_lines(self.cleaned_data.get("photos_raw"))
+    def clean_sns_links_raw(self) -> list[str]:
+        return _split_lines(self.cleaned_data.get("sns_links_raw"))
 
     def save(self, commit: bool = True) -> Submission:
         instance: Submission = super().save(commit=False)
-        instance.links = self.cleaned_data.get("links_raw", [])
-        instance.photos = self.cleaned_data.get("photos_raw", [])
-        gear_info: dict[str, Any] = {}
-        front = self.cleaned_data.get("front_teeth")
-        rear = self.cleaned_data.get("rear_teeth")
-        wheel = self.cleaned_data.get("wheel_size")
-        if front:
-            gear_info["front_teeth"] = front
-        if rear:
-            gear_info["rear_teeth"] = rear
-        if wheel:
-            gear_info["wheel_size"] = wheel
-        if gear_info:
-            instance.gear_info = gear_info
+        instance.sns_links = self.cleaned_data.get("sns_links_raw", [])
         if commit:
             instance.save()
         return instance
 
 
+class PostForm(forms.ModelForm):
+    """운영자가 게시글을 작성하거나 수정할 때 쓰는 폼입니다."""
+
+    class Meta:
+        model = Post
+        fields = [
+            "title",
+            "slug",
+            "summary",
+            "body",
+            "cover_image",
+            "status",
+            "featured",
+            "tags",
+        ]
+        labels = {
+            "title": "제목",
+            "slug": "슬러그",
+            "summary": "요약",
+            "body": "본문",
+            "cover_image": "대표 이미지 URL",
+            "status": "공개 상태",
+            "featured": "추천 노출",
+            "tags": "태그",
+        }
+        widgets = {
+            "summary": forms.Textarea(attrs={"rows": 3}),
+            "body": forms.Textarea(attrs={"rows": 10}),
+            "tags": forms.CheckboxSelectMultiple(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["status"].choices = PostStatus.choices
+
+
 class GearCalculatorForm(forms.Form):
-    """Simple gear ratio calculator form."""
+    """기어비를 계산하는 간단한 폼입니다."""
 
     WHEEL_SIZES = {
         "700c": 622,

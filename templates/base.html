@@ -27,7 +27,12 @@
             <nav>
               <ul>
                 {% if request.user.is_authenticated %}
-                  <li><a href="{% url 'user:profile' %}">내 프로필</a></li>
+                  {% if request.user.is_superuser %}
+                    <li><a href="{% url 'user:admin_dashboard' %}">관리 페이지</a></li>
+                    <li><a href="{% url 'post:create' %}">새 글 작성</a></li>
+                  {% else %}
+                    <li><a href="{% url 'user:profile' %}">내 프로필</a></li>
+                  {% endif %}
                   <li><a href="{% url 'user:logout' %}">로그아웃</a></li>
                 {% else %}
                   <li><a href="{% url 'user:login' %}">로그인</a></li>
