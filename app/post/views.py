@@ -14,8 +14,11 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
-from .forms import CommentForm, GearCalculatorForm, PostForm, SubmissionForm
-from .models import Comment, Like, Post, PostStatus, Submission, SubmissionStatus, Tag
+from app.submission.forms import SubmissionForm
+from app.submission.models import Submission, SubmissionStatus
+
+from .forms import CommentForm, GearCalculatorForm, PostForm
+from .models import Comment, Like, Post, PostStatus, Tag
 
 
 class PublishedPostQuerysetMixin:
@@ -267,6 +270,10 @@ class SubmissionLinkedPostMixin(LoginRequiredMixin, UserPassesTestMixin):
             submission.result_post = self.object
             submission.rejection_reason = ""
             submission.save(update_fields=["status", "result_post", "rejection_reason"])
+            detail = submission.build_detail_safe
+            if detail:
+                self.object.spec = detail.as_dict()
+                self.object.save(update_fields=["spec"])
         messages.success(self.request, message)
         return response
 

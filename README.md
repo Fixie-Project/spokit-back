@@ -84,6 +84,7 @@ docker compose exec web poetry run pytest
   - `/posts/new/` 경로에서 신청서를 불러와 게시글을 작성하고 자동 임시저장
 - `/posts/<slug>/edit/`에서 관리자 모드로 게시글을 수정할 수 있으며, 신청서와 연동됩니다.
 - 회원 마이페이지에서 소개 신청 진행 상황·반려 사유·완료된 게시글 확인 및 재수정 가능
+- 신청 폼에서 프레임·휠셋 등 부품 정보를 세부 항목으로 저장해 추후 검색과 게시글 스펙에 활용
 - 소개 신청서는 SNS 링크 중심으로 제출하며, 진행 상태는 자동으로 업데이트
 
 ## 주요 Django 설정
@@ -91,7 +92,8 @@ docker compose exec web poetry run pytest
 - 기본 언어: 한국어(`ko-kr`), 시간대: `Asia/Seoul`
 - 데이터베이스: PostgreSQL (`POSTGRES_*` 환경변수로 제어)
 - 정적 파일: Whitenoise + `static/` 폴더, `collectstatic` 시 `staticfiles/`에 저장
-- 게시글·태그·신청·댓글 모델은 `app.post` 앱에서 관리
+- 게시글·태그·댓글 모델은 `app.post` 앱에서 관리
+- 소개 신청과 부품 정보는 `app.submission` 앱에서 별도로 관리
 - 인증 관련 뷰/폼은 `app.user` 앱에서 관리하며 Django 기본 User 모델을 확장
 
 ## 운영 환경 (예시)

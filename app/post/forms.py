@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from django import forms
 
-from .models import Comment, Post, PostStatus, Submission
+from .models import Comment, Post, PostStatus
 
 
 class CommentForm(forms.ModelForm):
@@ -22,53 +22,6 @@ class CommentForm(forms.ModelForm):
             )
         }
         labels = {"content": "댓글"}
-
-
-class SubmissionForm(forms.ModelForm):
-    """소개 신청서를 작성하는 폼입니다."""
-
-    sns_links_raw = forms.CharField(
-        label="SNS 링크",
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "rows": 3,
-                "placeholder": "Instagram, Blog, YouTube 등 SNS 링크를 줄바꿈으로 입력",
-            }
-        ),
-        help_text="각 줄마다 하나의 링크를 입력하세요.",
-    )
-
-    class Meta:
-        model = Submission
-        fields = [
-            "submitter_name",
-            "submitter_email",
-            "message",
-        ]
-        labels = {
-            "submitter_name": "제출자 이름",
-            "submitter_email": "이메일",
-            "message": "메시지 / 빌드 소개",
-        }
-        widgets = {
-            "message": forms.Textarea(attrs={"rows": 6}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
-            self.fields["sns_links_raw"].initial = "\n".join(self.instance.sns_links or [])
-
-    def clean_sns_links_raw(self) -> list[str]:
-        return _split_lines(self.cleaned_data.get("sns_links_raw"))
-
-    def save(self, commit: bool = True) -> Submission:
-        instance: Submission = super().save(commit=False)
-        instance.sns_links = self.cleaned_data.get("sns_links_raw", [])
-        if commit:
-            instance.save()
-        return instance
 
 
 class PostForm(forms.ModelForm):
@@ -141,9 +94,3 @@ class GearCalculatorForm(forms.Form):
             "gear_inches": round(gear_inches, 2),
             "rollout_m": round(rollout_meter, 2),
         }
-
-
-def _split_lines(value: str | None) -> list[str]:
-    if not value:
-        return []
-    return [line.strip() for line in value.splitlines() if line.strip()]

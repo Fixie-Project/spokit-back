@@ -27,6 +27,23 @@
           </ul>
         </dd>
       {% endif %}
+      {% with detail=submission.build_detail_safe %}
+      {% if detail %}
+        <dt>부품 정보</dt>
+        <dd>
+          <table>
+            <tbody>
+              {% for label, value in detail.display_items %}
+                <tr>
+                  <th>{{ label }}</th>
+                  <td>{{ value }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </dd>
+      {% endif %}
+      {% endwith %}
       <dt>신청 메시지</dt>
       <dd>{{ submission.message|linebreaksbr }}</dd>
       {% if submission.draft_data %}

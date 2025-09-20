@@ -10,6 +10,9 @@
     <form method="post">
       {% csrf_token %}
       {% for field in form %}
+        {% if field.name == "frame" %}
+          <h3>부품 정보</h3>
+        {% endif %}
         <label>
           {{ field.label_tag }}
           {{ field }}

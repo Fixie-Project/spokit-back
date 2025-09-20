@@ -21,6 +21,16 @@
             {% endfor %}
           </ul>
         {% endif %}
+        {% with detail=submission.build_detail_safe %}
+          {% if detail and detail.display_items %}
+            <h4>부품 정보</h4>
+            <ul>
+              {% for label, value in detail.display_items %}
+                <li>{{ label }}: {{ value }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
         <details>
           <summary>신청 메시지 펼치기</summary>
           <p>{{ submission.message|linebreaksbr }}</p>

@@ -90,12 +90,12 @@ class Post(models.Model):
             "crank",
             "chainring",
             "cog",
-            "sprocket",
             "handlebar",
             "stem",
             "saddle",
             "seatpost",
             "pedal",
+            "acc",
             "others",
         ]
         items: list[tuple[str, Any]] = []
@@ -149,63 +149,3 @@ class Like(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} → {self.post}"
-
-
-class SubmissionStatus(models.TextChoices):
-    """소개 신청서가 거치는 단계를 나타냅니다."""
-
-    SUBMITTED = "submitted", "접수됨"
-    IN_REVIEW = "in_review", "대기중"
-    IN_PROGRESS = "in_progress", "포스팅중"
-    PUBLISHED = "published", "포스팅 완료"
-    REJECTED = "rejected", "반려"
-
-
-class Submission(models.Model):
-    """게시글 소개를 요청한 신청서를 저장합니다."""
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="submissions",
-    )
-    submitter_name = models.CharField(max_length=100)
-    submitter_email = models.EmailField()
-    sns_links = models.JSONField(default=list, blank=True)
-    message = models.TextField()
-    status = models.CharField(
-        max_length=20,
-        choices=SubmissionStatus.choices,
-        default=SubmissionStatus.SUBMITTED,
-    )
-    notes = models.TextField(blank=True)
-    rejection_reason = models.TextField(blank=True)
-    draft_data = models.JSONField(default=dict, blank=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    reviewer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="reviewed_submissions",
-    )
-    result_post = models.ForeignKey(
-        "Post",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="source_submissions",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["status"], name="submission_status_idx"),
-            models.Index(fields=["submitter_email"], name="submission_email_idx"),
-        ]
-
-    def __str__(self) -> str:
-        return f"Submission({self.submitter_name}, {self.status})"

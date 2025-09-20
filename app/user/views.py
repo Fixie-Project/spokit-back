@@ -9,8 +9,9 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View, generic
 
-from app.post.forms import SubmissionForm
-from app.post.models import Post, Submission, SubmissionStatus
+from app.post.models import Post
+from app.submission.forms import SubmissionForm
+from app.submission.models import Submission, SubmissionStatus
 
 from .forms import SignupForm
 
@@ -174,15 +175,12 @@ class SubmissionUpdateView(LoginRequiredMixin, UserPassesTestMixin, generic.Upda
         )
 
     def form_valid(self, form: SubmissionForm):
-        submission: Submission = form.save(commit=False)
-        submission.user = self.request.user
-        submission.status = SubmissionStatus.SUBMITTED
-        submission.rejection_reason = ""
-        submission.reviewer = None
-        submission.reviewed_at = None
-        submission.save()
-        if hasattr(form, "save_m2m"):
-            form.save_m2m()
+        form.instance.user = self.request.user
+        form.instance.status = SubmissionStatus.SUBMITTED
+        form.instance.rejection_reason = ""
+        form.instance.reviewer = None
+        form.instance.reviewed_at = None
+        submission: Submission = form.save(commit=True)
         self.object = submission
         messages.success(self.request, "소개 신청서를 수정했습니다. 운영자가 다시 확인할 거예요.")
         return HttpResponseRedirect(self.get_success_url())
