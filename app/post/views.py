@@ -144,6 +144,17 @@ class SubmissionCreateView(FormView):
         if self.request.user.is_authenticated:
             submission.user = self.request.user
             submission.save(update_fields=["user"])
+            if submission.bike and submission.bike.owner is None:
+                bike = submission.bike
+                base_name = bike.name or f"Submission {submission.pk}"
+                name = base_name
+                counter = 1
+                while bike.__class__.objects.filter(owner=self.request.user, name=name).exclude(pk=bike.pk).exists():
+                    counter += 1
+                    name = f"{base_name} #{counter}"
+                bike.owner = self.request.user
+                bike.name = name
+                bike.save(update_fields=["owner", "name"])
         messages.success(
             self.request,
             "소개글 신청이 접수되었습니다. 운영자가 검토 후 연락드릴게요!",
@@ -178,7 +189,10 @@ class SubmissionLinkedPostMixin(LoginRequiredMixin, UserPassesTestMixin):
         submission_id = request.GET.get("submission") or request.POST.get("submission")
         self.submission = None
         if submission_id:
-            self.submission = get_object_or_404(Submission, pk=submission_id)
+            self.submission = get_object_or_404(
+                Submission.objects.select_related("bike", "bike__spec"),
+                pk=submission_id,
+            )
         return super().dispatch(request, *args, **kwargs)
 
     def get_submission(self) -> Submission | None:
@@ -186,7 +200,7 @@ class SubmissionLinkedPostMixin(LoginRequiredMixin, UserPassesTestMixin):
             return self.submission
         obj = getattr(self, "object", None)
         if obj is not None:
-            linked = obj.source_submissions.first()
+            linked = obj.source_submissions.select_related("bike", "bike__spec").first()
             if linked:
                 self.submission = linked
         return self.submission
@@ -270,9 +284,8 @@ class SubmissionLinkedPostMixin(LoginRequiredMixin, UserPassesTestMixin):
             submission.result_post = self.object
             submission.rejection_reason = ""
             submission.save(update_fields=["status", "result_post", "rejection_reason"])
-            detail = submission.build_detail_safe
-            if detail:
-                self.object.spec = detail.as_dict()
+            if submission.bike and submission.bike.spec:
+                self.object.spec = submission.bike.spec.as_dict()
                 self.object.save(update_fields=["spec"])
         messages.success(self.request, message)
         return response

@@ -13,6 +13,14 @@
       <dd>{{ submission.submitter_email }}</dd>
       <dt>현재 상태</dt>
       <dd>{{ submission.get_status_display }}</dd>
+      {% if submission.bike %}
+        <dt>바이크</dt>
+        <dd>
+          {{ submission.bike.name }}
+          {% if submission.bike.nickname %} ({{ submission.bike.nickname }}){% endif %}
+          {% if submission.bike.description %}<br />{{ submission.bike.description|linebreaksbr }}{% endif %}
+        </dd>
+      {% endif %}
       {% if submission.rejection_reason %}
         <dt>반려 사유</dt>
         <dd>{{ submission.rejection_reason|linebreaksbr }}</dd>
@@ -27,13 +35,13 @@
           </ul>
         </dd>
       {% endif %}
-      {% with detail=submission.build_detail_safe %}
-      {% if detail %}
+      {% with bike=submission.bike %}
+      {% if bike and bike.spec %}
         <dt>부품 정보</dt>
         <dd>
           <table>
             <tbody>
-              {% for label, value in detail.display_items %}
+              {% for label, value in bike.spec.display_items %}
                 <tr>
                   <th>{{ label }}</th>
                   <td>{{ value }}</td>

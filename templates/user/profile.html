@@ -46,12 +46,16 @@
                 <br />
                 <a href="{% url 'user:submission_edit' submission.pk %}">신청 수정하기</a>
               {% endif %}
-              {% with detail=submission.build_detail_safe %}
-              {% if detail and detail.display_items %}
+              {% if submission.bike %}
+                <br />
+                <strong>바이크:</strong> {{ submission.bike.name }}{% if submission.bike.nickname %} ({{ submission.bike.nickname }}){% endif %}
+              {% endif %}
+              {% with bike=submission.bike %}
+              {% if bike and bike.spec and bike.spec.display_items %}
                 <details>
                   <summary>부품 정보 보기</summary>
                   <ul>
-                    {% for label, value in detail.display_items %}
+                    {% for label, value in bike.spec.display_items %}
                       <li>{{ label }}: {{ value }}</li>
                     {% endfor %}
                   </ul>

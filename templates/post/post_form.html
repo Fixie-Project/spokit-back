@@ -21,11 +21,11 @@
             {% endfor %}
           </ul>
         {% endif %}
-        {% with detail=submission.build_detail_safe %}
-          {% if detail and detail.display_items %}
+        {% with bike=submission.bike %}
+          {% if bike and bike.spec and bike.spec.display_items %}
             <h4>부품 정보</h4>
             <ul>
-              {% for label, value in detail.display_items %}
+              {% for label, value in bike.spec.display_items %}
                 <li>{{ label }}: {{ value }}</li>
               {% endfor %}
             </ul>

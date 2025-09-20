@@ -4,6 +4,8 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
+from app.bike.models import Bike, BikeSpec
+
 
 class SubmissionStatus(models.TextChoices):
     """소개 신청서가 거치는 단계를 정의합니다."""
@@ -52,6 +54,13 @@ class Submission(models.Model):
         on_delete=models.SET_NULL,
         related_name="source_submissions",
     )
+    bike = models.ForeignKey(
+        Bike,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="submissions",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -65,84 +74,50 @@ class Submission(models.Model):
     def __str__(self) -> str:
         return f"Submission({self.submitter_name}, {self.status})"
 
-    def ensure_build_detail(self) -> "SubmissionBuildDetail":
-        """연결된 부품 정보가 없다면 새로 만들어 반환합니다."""
+    def ensure_bike(self, *, owner, name: str, nickname: str = "", description: str = "") -> Bike:
+        """신청서에 연결된 자전거가 없으면 생성하거나 갱신합니다."""
 
-        detail, _ = SubmissionBuildDetail.objects.get_or_create(submission=self)
-        return detail
+        bike = self.bike
+        if bike is None:
+            unique_name = name
+            counter = 1
+            if owner:
+                exists = Bike.objects.filter(owner=owner, name=unique_name).exists()
+                while exists:
+                    counter += 1
+                    unique_name = f"{name} #{counter}"
+                    exists = Bike.objects.filter(owner=owner, name=unique_name).exists()
+            else:
+                exists = Bike.objects.filter(owner__isnull=True, name=unique_name).exists()
+                while exists:
+                    counter += 1
+                    unique_name = f"{name} #{counter}"
+                    exists = Bike.objects.filter(owner__isnull=True, name=unique_name).exists()
+            bike = Bike(owner=owner, name=unique_name, nickname=nickname, description=description)
+        else:
+            bike.name = name
+            bike.nickname = nickname
+            bike.description = description
+            if owner and bike.owner_id != owner.pk:
+                bike.owner = owner
+        bike.save()
+        self.bike = bike
+        self.save(update_fields=["bike"])
+        return bike
 
-    @property
-    def build_detail_safe(self) -> "SubmissionBuildDetail | None":
-        """부품 정보가 없으면 None을 돌려줍니다."""
+    def update_bike_spec(self, data: dict[str, str]) -> BikeSpec:
+        """자전거의 부품 정보를 주어진 데이터로 갱신합니다."""
 
-        try:
-            return self.build_detail
-        except SubmissionBuildDetail.DoesNotExist:
-            return None
-
-
-class SubmissionBuildDetail(models.Model):
-    """소개 신청과 함께 제출된 자전거 부품 정보입니다."""
-
-    submission = models.OneToOneField(
-        Submission,
-        on_delete=models.CASCADE,
-        related_name="build_detail",
-    )
-    frame = models.CharField(max_length=200, blank=True)
-    fork = models.CharField(max_length=200, blank=True)
-    wheelset = models.CharField(max_length=200, blank=True)
-    crank = models.CharField(max_length=200, blank=True)
-    chainring = models.CharField(max_length=200, blank=True)
-    cog = models.CharField(max_length=200, blank=True)
-    handlebar = models.CharField(max_length=200, blank=True)
-    stem = models.CharField(max_length=200, blank=True)
-    saddle = models.CharField(max_length=200, blank=True)
-    seatpost = models.CharField(max_length=200, blank=True)
-    pedal = models.CharField(max_length=200, blank=True)
-    acc = models.TextField(blank=True, db_column="others")
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "소개 신청 부품 정보"
-        verbose_name_plural = "소개 신청 부품 정보"
-        db_table = "post_submissionbuilddetail"
-
-    def as_dict(self) -> dict[str, str]:
-        """비어 있지 않은 항목만 딕셔너리로 돌려줍니다."""
-
-        data = {
-            "frame": self.frame,
-            "fork": self.fork,
-            "wheelset": self.wheelset,
-            "crank": self.crank,
-            "chainring": self.chainring,
-            "cog": self.cog,
-            "handlebar": self.handlebar,
-            "stem": self.stem,
-            "saddle": self.saddle,
-            "seatpost": self.seatpost,
-            "pedal": self.pedal,
-            "acc": self.acc,
+        if not self.bike:
+            raise ValueError("bike must be assigned before updating spec")
+        spec, _ = BikeSpec.objects.get_or_create(bike=self.bike)
+        allowed_fields = {
+            field.name
+            for field in BikeSpec._meta.get_fields()
+            if getattr(field, "concrete", False) and field.name not in {"id", "bike", "updated_at"}
         }
-        return {key: value for key, value in data.items() if value}
-
-    @property
-    def display_items(self) -> list[tuple[str, str]]:
-        """템플릿에서 보기 좋게 (한글라벨, 값)을 돌려줍니다."""
-
-        labels = {
-            "frame": "프레임",
-            "fork": "포크",
-            "wheelset": "휠셋",
-            "crank": "크랭크",
-            "chainring": "체인링",
-            "cog": "코그",
-            "handlebar": "핸들바",
-            "stem": "스템",
-            "saddle": "안장",
-            "seatpost": "싯포스트",
-            "pedal": "페달",
-            "acc": "액세서리",
-        }
-        return [(labels.get(key, key), value) for key, value in self.as_dict().items()]
+        for field, value in data.items():
+            if field in allowed_fields:
+                setattr(spec, field, value or "")
+        spec.save()
+        return spec

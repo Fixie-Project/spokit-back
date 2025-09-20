@@ -96,7 +96,6 @@ class Post(models.Model):
             "seatpost",
             "pedal",
             "acc",
-            "others",
         ]
         items: list[tuple[str, Any]] = []
         seen = set()

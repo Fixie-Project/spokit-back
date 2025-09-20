@@ -35,13 +35,16 @@
                 {% if submission.result_post %}
                   · <a href="{% url 'post:edit' submission.result_post.slug %}?submission={{ submission.id }}">수정</a>
                 {% endif %}
+                {% if submission.bike %}
+                  <br /><small>바이크: {{ submission.bike.nickname|default:submission.bike.name }}</small>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
       <p>
-        <a href="{% url 'admin:post_submission_changelist' %}">모든 신청글 보기</a>
+        <a href="{% url 'admin:submission_submission_changelist' %}">모든 신청글 보기</a>
       </p>
     {% else %}
       <p>대기 중인 신청글이 없습니다.</p>
@@ -58,6 +61,9 @@
             <span> — <a href="{% url 'user:admin_submission_detail' submission.id %}">세부 내용 확인</a>
               {% if submission.result_post %}
                 | <a href="{% url 'post:edit' submission.result_post.slug %}?submission={{ submission.id }}">게시글 수정</a>
+              {% endif %}
+              {% if submission.bike %}
+                | 바이크: {{ submission.bike.nickname|default:submission.bike.name }}
               {% endif %}
             </span>
           </li>

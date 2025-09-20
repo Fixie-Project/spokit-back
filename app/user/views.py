@@ -37,7 +37,11 @@ class ProfileView(LoginRequiredMixin, generic.TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "마이페이지"
-        submissions = Submission.objects.filter(user=self.request.user).order_by("-created_at")
+        submissions = (
+            Submission.objects.filter(user=self.request.user)
+            .select_related("bike", "bike__spec")
+            .order_by("-created_at")
+        )
         context["submissions"] = submissions
         context["submission_status"] = SubmissionStatus
         return context
@@ -72,12 +76,16 @@ class AdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, generic.Templa
     def get_context_data(self, **kwargs):
         """최근 신청과 게시글 요약 정보를 채워 넣습니다."""
         context = super().get_context_data(**kwargs)
-        context["pending_submissions"] = Submission.objects.filter(
-            status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW]
-        ).order_by("-created_at")[:5]
-        context["in_progress_submissions"] = Submission.objects.filter(
-            status=SubmissionStatus.IN_PROGRESS
-        ).order_by("-reviewed_at", "-created_at")[:5]
+        context["pending_submissions"] = (
+            Submission.objects.filter(status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW])
+            .select_related("bike", "bike__spec")
+            .order_by("-created_at")[:5]
+        )
+        context["in_progress_submissions"] = (
+            Submission.objects.filter(status=SubmissionStatus.IN_PROGRESS)
+            .select_related("bike", "bike__spec")
+            .order_by("-reviewed_at", "-created_at")[:5]
+        )
         context["recent_posts"] = Post.objects.order_by("-created_at")[:5]
         context["total_pending"] = Submission.objects.filter(
             status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW]
