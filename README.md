@@ -93,7 +93,7 @@ docker compose exec web poetry run pytest
 - 데이터베이스: PostgreSQL (`POSTGRES_*` 환경변수로 제어)
 - 정적 파일: Whitenoise + `static/` 폴더, `collectstatic` 시 `staticfiles/`에 저장
 - 게시글·태그·댓글 모델은 `app.post` 앱에서 관리
-- 소개 신청과 부품 정보는 `app.submission` 앱에서 별도로 관리
+- 소개 신청 흐름은 `app.submission`, 회원 자전거/부품 데이터는 `app.bike` 앱에서 관리
 - 인증 관련 뷰/폼은 `app.user` 앱에서 관리하며 Django 기본 User 모델을 확장
 
 ## 운영 환경 (예시)

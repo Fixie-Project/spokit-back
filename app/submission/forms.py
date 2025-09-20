@@ -9,6 +9,13 @@ from .models import Submission
 class SubmissionForm(forms.ModelForm):
     """소개 신청서를 작성하거나 수정할 때 쓰는 폼입니다."""
 
+    bike_name = forms.CharField(label="바이크 이름", max_length=100)
+    bike_nickname = forms.CharField(label="바이크 별칭", max_length=100, required=False)
+    bike_description = forms.CharField(
+        label="바이크 설명",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
     sns_links_raw = forms.CharField(
         label="SNS 링크",
         required=False,
@@ -70,10 +77,17 @@ class SubmissionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields["sns_links_raw"].initial = "\n".join(self.instance.sns_links or [])
-            detail = self.instance.build_detail_safe
-            if detail:
-                for field in self.BUILD_FIELDS:
-                    self.fields[field].initial = getattr(detail, field)
+            if self.instance.bike:
+                self.fields["bike_name"].initial = self.instance.bike.name
+                self.fields["bike_nickname"].initial = self.instance.bike.nickname
+                self.fields["bike_description"].initial = self.instance.bike.description
+                spec = getattr(self.instance.bike, "spec", None)
+                if spec:
+                    for field in self.BUILD_FIELDS:
+                        self.fields[field].initial = getattr(spec, field)
+        else:
+            if self.instance.submitter_name:
+                self.fields["bike_name"].initial = self.instance.submitter_name
 
     def clean_sns_links_raw(self) -> list[str]:
         return _split_lines(self.cleaned_data.get("sns_links_raw"))
@@ -83,10 +97,20 @@ class SubmissionForm(forms.ModelForm):
         submission.sns_links = self.cleaned_data.get("sns_links_raw", [])
         if commit:
             submission.save()
-        detail = submission.ensure_build_detail()
-        for field in self.BUILD_FIELDS:
-            setattr(detail, field, self.cleaned_data.get(field, ""))
-        detail.save()
+        if not submission.pk:
+            submission.save()
+        owner = submission.user if submission.user_id else None
+        bike = submission.ensure_bike(
+            owner=owner,
+            name=self.cleaned_data.get("bike_name"),
+            nickname=self.cleaned_data.get("bike_nickname", ""),
+            description=self.cleaned_data.get("bike_description", ""),
+        )
+        spec_data = {
+            field: self.cleaned_data.get(field, "")
+            for field in self.BUILD_FIELDS
+        }
+        submission.update_bike_spec(spec_data)
         return submission
 
 
