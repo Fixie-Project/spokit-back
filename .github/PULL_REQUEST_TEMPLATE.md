@@ -11,14 +11,21 @@
 ---
 
 ## 🔄 API 변경 (있을 때만 작성)
+- _**POST**_ `/api/example` 설명
+- _**GET**_ `/api/example` 설명
+- _**PUT**_ `/api/example` 설명
+- _**PATCH**_ `/api/example` 설명
+- _**DELETE**_ `/api/example` 설명
+
 **추가**
-- `POST /api/...` 설명
+- 
 
 **수정**
-- `GET /api/...` 변경 설명
+- 
 
 **삭제**
-- `DELETE /api/...` 삭제 사유
+- 
+
 
 ---
 
