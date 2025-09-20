@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "fixiehood"
+name = "spokit"
 version = "0.1.0"
 description = "Django blog starter"
 package-mode = false
-authors = ["Fixiehood <you@example.com>"]
+authors = ["Spokit <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"

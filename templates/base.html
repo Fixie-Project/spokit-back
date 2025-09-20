@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}Fixiehood{% endblock %}</title>
+    <title>{% block title %}Spokit{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css" />
     <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   </head>
@@ -12,7 +12,7 @@
     <main class="container">
       <header class="grid">
         <div>
-          <h1><a href="{% url 'post:list' %}">Fixiehood</a></h1>
+          <h1><a href="{% url 'post:list' %}">Spokit</a></h1>
           <p>픽시 문화를 기록하는 놀이터</p>
         </div>
         <div class="grid">
@@ -47,7 +47,7 @@
       {% endif %}
       {% block content %}{% endblock %}
       <footer class="grid">
-        <small>&copy; {% now "Y" %} Fixiehood</small>
+        <small>&copy; {% now "Y" %} Spokit</small>
       </footer>
     </main>
   </body>

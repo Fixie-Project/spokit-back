@@ -1,11 +1,11 @@
-# Fixiehood 블로그 초기 세팅
+# Spokit 초기 세팅
 
 장고(Django)를 기반으로 한 픽시 커뮤니티 아카이브의 초기 프로젝트 구조입니다. Docker를 이용해 Postgres 데이터베이스와 함께 실행할 수 있으며, AWS EC2에 배포할 수 있도록 기본 스크립트와 설정을 포함합니다. 패키지 관리는 Poetry로 구성했습니다.
 
 ## 프로젝트 구조
 
 ```
-fixiehood/
+spokit/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .dockerignore
@@ -16,7 +16,7 @@ fixiehood/
 │   ├── post/
 │   └── user/
 ├── templates/
-│   ├── post/ (홈, 상세, 태그, 기어 계산기, 소개 신청)
+│   ├── post/ (홈, 상세, 태그, 기어 계산기, 스포킷 신청)
 │   └── user/ (로그인, 가입, 프로필)
 ├── static/
 ├── envs/
@@ -98,8 +98,8 @@ docker compose exec web poetry run pytest
 
 2. 프로젝트 코드 배포 (예: git clone)
    ```bash
-   git clone <repository-url> fixiehood
-   cd fixiehood
+   git clone <repository-url> spokit
+   cd spokit
    ```
 
 3. 환경변수 파일 작성

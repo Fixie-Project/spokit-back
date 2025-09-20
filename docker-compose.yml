@@ -18,9 +18,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-fixiehood_dev}
-      POSTGRES_USER: ${POSTGRES_USER:-fixiehood}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fixiehood}
+      POSTGRES_DB: ${POSTGRES_DB:-spokit_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-spokit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spokit}
     ports:
       - "5432:5432"
     volumes:
