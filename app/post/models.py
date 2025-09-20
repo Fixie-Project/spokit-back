@@ -1,4 +1,4 @@
-"""Database models for the post application."""
+"""게시글 앱에서 사용하는 모델 정의입니다."""
 from __future__ import annotations
 
 from typing import Any
@@ -10,7 +10,7 @@ from django.urls import reverse
 
 
 class PostStatus(models.TextChoices):
-    """Workflow status for curated posts."""
+    """게시글의 진행 상태를 정의합니다."""
 
     DRAFT = "draft", "초안"
     REVIEW = "review", "검수중"
@@ -18,7 +18,7 @@ class PostStatus(models.TextChoices):
 
 
 class Tag(models.Model):
-    """Topic taxonomy such as 브랜드, 지역, 크루 등."""
+    """브랜드·지역 등 주제를 나타내는 태그입니다."""
 
     name = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(unique=True)
@@ -34,7 +34,7 @@ class Tag(models.Model):
 
 
 class Post(models.Model):
-    """Individual blog post curated by the operator."""
+    """운영자가 작성·관리하는 게시글입니다."""
 
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -78,7 +78,7 @@ class Post(models.Model):
         return self.status == PostStatus.PUBLISHED
 
     def spec_items(self) -> list[tuple[str, Any]]:
-        """Return spec items in a stable order for rendering."""
+        """스펙 정보를 화면에 보여줄 순서대로 정렬합니다."""
 
         if not isinstance(self.spec, dict):
             return []
@@ -90,12 +90,12 @@ class Post(models.Model):
             "crank",
             "chainring",
             "cog",
-            "sprocket",
             "handlebar",
             "stem",
             "saddle",
             "seatpost",
             "pedal",
+            "acc",
             "others",
         ]
         items: list[tuple[str, Any]] = []
@@ -118,7 +118,7 @@ class Post(models.Model):
 
 
 class Comment(models.Model):
-    """User comments per post."""
+    """게시글에 달린 댓글을 저장합니다."""
 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(
@@ -136,7 +136,7 @@ class Comment(models.Model):
 
 
 class Like(models.Model):
-    """Post likes by authenticated users."""
+    """회원이 누른 좋아요 정보를 저장합니다."""
 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
     user = models.ForeignKey(
@@ -149,47 +149,3 @@ class Like(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} → {self.post}"
-
-
-class SubmissionStatus(models.TextChoices):
-    """Workflow status for community submissions."""
-
-    PENDING = "pending", "대기"
-    APPROVED = "approved", "승인"
-    REJECTED = "rejected", "반려"
-
-
-class Submission(models.Model):
-    """User-submitted request for post curation."""
-
-    submitter_name = models.CharField(max_length=100)
-    submitter_email = models.EmailField()
-    links = models.JSONField(default=list, blank=True)
-    photos = models.JSONField(default=list, blank=True)
-    gear_info = models.JSONField(default=dict, blank=True)
-    message = models.TextField()
-    status = models.CharField(
-        max_length=20,
-        choices=SubmissionStatus.choices,
-        default=SubmissionStatus.PENDING,
-    )
-    notes = models.TextField(blank=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    reviewer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="reviewed_submissions",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["status"], name="submission_status_idx"),
-            models.Index(fields=["submitter_email"], name="submission_email_idx"),
-        ]
-
-    def __str__(self) -> str:
-        return f"Submission({self.submitter_name}, {self.status})"

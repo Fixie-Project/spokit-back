@@ -1,7 +1,7 @@
-"""Admin configuration for post models."""
+"""게시글 관련 모델의 관리자 설정입니다."""
 from django.contrib import admin
 
-from .models import Comment, Like, Post, Submission, Tag
+from .models import Comment, Like, Post, Tag
 
 
 @admin.register(Tag)
@@ -34,16 +34,3 @@ class LikeAdmin(admin.ModelAdmin):
     list_display = ("post", "user", "created_at")
     search_fields = ("user__username", "post__title")
 
-
-@admin.register(Submission)
-class SubmissionAdmin(admin.ModelAdmin):
-    list_display = (
-        "submitter_name",
-        "submitter_email",
-        "status",
-        "created_at",
-        "reviewed_at",
-    )
-    list_filter = ("status", "created_at")
-    search_fields = ("submitter_name", "submitter_email")
-    readonly_fields = ("created_at", "reviewed_at")

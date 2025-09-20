@@ -1,16 +1,14 @@
-"""Forms for post-related interactions."""
+"""게시글 기능에 쓰이는 폼 모음입니다."""
 from __future__ import annotations
 
 import math
-from typing import Any
-
 from django import forms
 
-from .models import Comment, Submission
+from .models import Comment, Post, PostStatus
 
 
 class CommentForm(forms.ModelForm):
-    """Simple textarea form for comments."""
+    """댓글 내용을 입력하는 폼입니다."""
 
     class Meta:
         model = Comment
@@ -26,96 +24,44 @@ class CommentForm(forms.ModelForm):
         labels = {"content": "댓글"}
 
 
-class SubmissionForm(forms.ModelForm):
-    """Form for build introduction submissions."""
-
-    links_raw = forms.CharField(
-        label="참고 링크",
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "rows": 3,
-                "placeholder": "Instagram, Blog, Youtube 링크 등을 줄바꿈으로 입력",
-            }
-        ),
-        help_text="각 줄마다 하나의 링크를 입력하세요.",
-    )
-    photos_raw = forms.CharField(
-        label="사진 링크",
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "rows": 3,
-                "placeholder": "사진 또는 드라이브 링크를 줄바꿈으로 입력",
-            }
-        ),
-    )
-    front_teeth = forms.IntegerField(
-        label="앞 톱니 수",
-        min_value=1,
-        required=False,
-    )
-    rear_teeth = forms.IntegerField(
-        label="뒤 톱니 수",
-        min_value=1,
-        required=False,
-    )
-    wheel_size = forms.ChoiceField(
-        label="휠 사이즈",
-        required=False,
-        choices=[
-            ("", "선택안함"),
-            ("700c", "700C (622mm)"),
-            ("650c", "650C (571mm)"),
-            ("26", "26인치 (559mm)"),
-        ],
-    )
+class PostForm(forms.ModelForm):
+    """운영자가 게시글을 작성하거나 수정할 때 쓰는 폼입니다."""
 
     class Meta:
-        model = Submission
+        model = Post
         fields = [
-            "submitter_name",
-            "submitter_email",
-            "message",
+            "title",
+            "slug",
+            "summary",
+            "body",
+            "cover_image",
+            "status",
+            "featured",
+            "tags",
         ]
         labels = {
-            "submitter_name": "제출자 이름",
-            "submitter_email": "이메일",
-            "message": "메시지 / 빌드 소개",
+            "title": "제목",
+            "slug": "슬러그",
+            "summary": "요약",
+            "body": "본문",
+            "cover_image": "대표 이미지 URL",
+            "status": "공개 상태",
+            "featured": "추천 노출",
+            "tags": "태그",
         }
         widgets = {
-            "message": forms.Textarea(attrs={"rows": 6}),
+            "summary": forms.Textarea(attrs={"rows": 3}),
+            "body": forms.Textarea(attrs={"rows": 10}),
+            "tags": forms.CheckboxSelectMultiple(),
         }
 
-    def clean_links_raw(self) -> list[str]:
-        return _split_lines(self.cleaned_data.get("links_raw"))
-
-    def clean_photos_raw(self) -> list[str]:
-        return _split_lines(self.cleaned_data.get("photos_raw"))
-
-    def save(self, commit: bool = True) -> Submission:
-        instance: Submission = super().save(commit=False)
-        instance.links = self.cleaned_data.get("links_raw", [])
-        instance.photos = self.cleaned_data.get("photos_raw", [])
-        gear_info: dict[str, Any] = {}
-        front = self.cleaned_data.get("front_teeth")
-        rear = self.cleaned_data.get("rear_teeth")
-        wheel = self.cleaned_data.get("wheel_size")
-        if front:
-            gear_info["front_teeth"] = front
-        if rear:
-            gear_info["rear_teeth"] = rear
-        if wheel:
-            gear_info["wheel_size"] = wheel
-        if gear_info:
-            instance.gear_info = gear_info
-        if commit:
-            instance.save()
-        return instance
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["status"].choices = PostStatus.choices
 
 
 class GearCalculatorForm(forms.Form):
-    """Simple gear ratio calculator form."""
+    """기어비를 계산하는 간단한 폼입니다."""
 
     WHEEL_SIZES = {
         "700c": 622,
@@ -148,9 +94,3 @@ class GearCalculatorForm(forms.Form):
             "gear_inches": round(gear_inches, 2),
             "rollout_m": round(rollout_meter, 2),
         }
-
-
-def _split_lines(value: str | None) -> list[str]:
-    if not value:
-        return []
-    return [line.strip() for line in value.splitlines() if line.strip()]
