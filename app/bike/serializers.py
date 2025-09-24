@@ -38,8 +38,6 @@ class BikeSerializer(serializers.ModelSerializer):
             "id",
             "owner",
             "name",
-            "nickname",
-            "description",
             "is_primary",
             "created_at",
             "updated_at",

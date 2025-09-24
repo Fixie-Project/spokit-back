@@ -12,9 +12,9 @@ class BikeSpecInline(admin.StackedInline):
 
 @admin.register(Bike)
 class BikeAdmin(admin.ModelAdmin):
-    list_display = ("owner", "name", "nickname", "is_primary", "created_at")
+    list_display = ("owner", "name", "is_primary", "created_at")
     list_filter = ("is_primary", "created_at")
-    search_fields = ("name", "nickname", "owner__username", "owner__email")
+    search_fields = ("name", "owner__username", "owner__email")
     inlines = [BikeSpecInline]
     ordering = ("owner", "-is_primary", "name")
 
@@ -22,5 +22,5 @@ class BikeAdmin(admin.ModelAdmin):
 @admin.register(BikeSpec)
 class BikeSpecAdmin(admin.ModelAdmin):
     list_display = ("bike", "updated_at")
-    search_fields = ("bike__name", "bike__nickname", "bike__owner__username")
+    search_fields = ("bike__name", "bike__owner__username")
     readonly_fields = ("updated_at",)

@@ -9,8 +9,7 @@
       <article class="submission-preview">
         <h3>연결된 소개 신청</h3>
         <ul>
-          <li><strong>제출자:</strong> {{ submission.submitter_name }}</li>
-          <li><strong>이메일:</strong> {{ submission.submitter_email }}</li>
+          <li><strong>지원자:</strong> {{ submission.user.get_username }}</li>
           <li><strong>상태:</strong> {{ submission.get_status_display }}</li>
         </ul>
         {% if submission.sns_links %}
@@ -33,7 +32,7 @@
         {% endwith %}
         <details>
           <summary>신청 메시지 펼치기</summary>
-          <p>{{ submission.message|linebreaksbr }}</p>
+          <div class="submission-message">{{ submission.message_html }}</div>
         </details>
       </article>
     {% endif %}

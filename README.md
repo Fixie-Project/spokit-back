@@ -86,7 +86,9 @@ docker compose exec web poetry run pytest
 - 회원 마이페이지에서 소개 신청 진행 상황·반려 사유·완료된 게시글 확인 및 재수정 가능
 - 신청 폼에서 프레임·휠셋 등 부품 정보를 세부 항목으로 저장해 추후 검색과 게시글 스펙에 활용
 - 소개 신청서는 SNS 링크 중심으로 제출하며, 진행 상태는 자동으로 업데이트
+- 소개 신청 시 제목과 세부 설명을 입력해 바이크 정보를 관리하며, 부품 스펙은 자동으로 연동
 - REST API(`/api/…`)로 바이크 및 소개 신청 데이터를 연동할 수 있도록 DRF ViewSet을 제공
+- `/api/schema/`(JSON), `/api/docs/`(Swagger UI), `/api/redoc/`(ReDoc)에서 API 문서 확인 가능
 
 ## 주요 Django 설정
 

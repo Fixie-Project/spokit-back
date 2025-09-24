@@ -29,6 +29,8 @@ poetry.toml
 .env
 .env.*
 *.env.local
+!.env.example
+*.env
 
 # OS artifacts
 .DS_Store

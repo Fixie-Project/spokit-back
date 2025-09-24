@@ -6,19 +6,23 @@
   <section>
     <a href="{% url 'user:admin_dashboard' %}">&larr; 대시보드로 돌아가기</a>
     <h2>소개 신청 상세</h2>
+    <p><strong>제목:</strong> {{ submission.title|default:"(제목 없음)" }}</p>
     <dl>
-      <dt>제출자</dt>
-      <dd>{{ submission.submitter_name }}</dd>
-      <dt>이메일</dt>
-      <dd>{{ submission.submitter_email }}</dd>
+      <dt>회원</dt>
+      <dd>
+        {% if submission.user %}
+          {{ submission.user.get_full_name|default:submission.user.get_username }}
+          {% if submission.user.email %}<br />{{ submission.user.email }}{% endif %}
+        {% else %}
+          -
+        {% endif %}
+      </dd>
       <dt>현재 상태</dt>
       <dd>{{ submission.get_status_display }}</dd>
       {% if submission.bike %}
         <dt>바이크</dt>
         <dd>
           {{ submission.bike.name }}
-          {% if submission.bike.nickname %} ({{ submission.bike.nickname }}){% endif %}
-          {% if submission.bike.description %}<br />{{ submission.bike.description|linebreaksbr }}{% endif %}
         </dd>
       {% endif %}
       {% if submission.rejection_reason %}
@@ -31,6 +35,18 @@
           <ul>
             {% for link in submission.sns_links %}
               <li><a href="{{ link }}" target="_blank" rel="noopener">{{ link }}</a></li>
+            {% endfor %}
+          </ul>
+        </dd>
+      {% endif %}
+      {% if submission.images.all %}
+        <dt>첨부 이미지</dt>
+        <dd class="submission-images">
+          <ul>
+            {% for image in submission.images.all %}
+              <li>
+                <a href="{{ image.image.url }}" target="_blank" rel="noopener">{{ image.image.name }}</a>
+              </li>
             {% endfor %}
           </ul>
         </dd>
@@ -53,7 +69,7 @@
       {% endif %}
       {% endwith %}
       <dt>신청 메시지</dt>
-      <dd>{{ submission.message|linebreaksbr }}</dd>
+      <dd>{{ submission.message_html }}</dd>
       {% if submission.draft_data %}
         <dt>임시저장 내용</dt>
         <dd>

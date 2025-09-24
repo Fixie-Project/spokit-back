@@ -12,7 +12,7 @@ def forwards(apps, schema_editor):
 
     for submission in Submission.objects.all():
         owner = User.objects.filter(pk=submission.user_id).first() if submission.user_id else None
-        base_name = submission.submitter_name or f"Submission {submission.pk}"
+        base_name = submission.title or submission.submitter_name or f"Submission {submission.pk}"
         name = base_name
         counter = 1
         if owner:
@@ -30,8 +30,6 @@ def forwards(apps, schema_editor):
         bike = Bike.objects.create(
             owner=owner,
             name=name,
-            nickname="",
-            description=(submission.message or "")[:500],
             is_primary=False,
         )
 

@@ -1,12 +1,21 @@
 """소개 신청 관련 API 뷰셋입니다."""
 from __future__ import annotations
 
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, viewsets
 
 from .models import Submission
 from .serializers import SubmissionSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Submissions"], summary="소개 신청 목록 조회"),
+    retrieve=extend_schema(tags=["Submissions"], summary="소개 신청 상세 조회"),
+    create=extend_schema(tags=["Submissions"], summary="소개 신청 생성"),
+    update=extend_schema(tags=["Submissions"], summary="소개 신청 전체 수정"),
+    partial_update=extend_schema(tags=["Submissions"], summary="소개 신청 부분 수정"),
+    destroy=extend_schema(tags=["Submissions"], summary="소개 신청 삭제"),
+)
 class SubmissionViewSet(viewsets.ModelViewSet):
     """소개 신청서 CRUD를 제공하는 API."""
 
@@ -14,8 +23,10 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Submission.objects.filter(user=self.request.user).select_related(
-            "bike", "bike__spec", "result_post"
+        return (
+            Submission.objects.filter(user=self.request.user)
+            .select_related("bike", "bike__spec", "result_post")
+            .prefetch_related("images")
         )
 
     def perform_create(self, serializer):
