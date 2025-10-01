@@ -32,6 +32,7 @@ poetry.toml
 !.env.example
 *.env
 
+
 # OS artifacts
 .DS_Store
 Thumbs.db

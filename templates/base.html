@@ -5,43 +5,42 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}Spokit{% endblock %}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css" />
     <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   </head>
   <body>
-    <main class="container">
-      <header class="grid">
-        <div>
-          <h1><a href="{% url 'post:list' %}">Spokit</a></h1>
-          <p>픽시 문화를 기록하는 놀이터</p>
+    <main class="site-container">
+      <header class="site-header">
+        <div class="site-brand">
+          <a class="site-brand__link" href="{% url 'post:list' %}">
+            <span class="site-brand__mark">
+              <span class="site-brand__inner"></span>
+            </span>
+            <div class="site-brand__copy">
+              <h1>Spokit</h1>
+              <p>픽시 문화를 기록하는 놀이터</p>
+            </div>
+          </a>
         </div>
-        <div class="grid">
-          <nav>
-            <ul>
-              <li><a href="{% url 'post:list' %}">홈</a></li>
-              <li><a href="{% url 'post:gear_calc' %}">기어 계산기</a></li>
-              <li><a href="{% url 'post:submit' %}">소개 신청</a></li>
-            </ul>
-          </nav>
+        <nav class="site-nav">
+          <a href="{% url 'post:list' %}">홈</a>
+          <a href="{% url 'post:submit' %}">소개 신청</a>
+        </nav>
+        <nav class="site-nav site-nav--secondary">
           {% block header_extra %}
-            <nav>
-              <ul>
-                {% if request.user.is_authenticated %}
-                  {% if request.user.is_superuser %}
-                    <li><a href="{% url 'user:admin_dashboard' %}">관리 페이지</a></li>
-                    <li><a href="{% url 'post:create' %}">새 글 작성</a></li>
-                  {% else %}
-                    <li><a href="{% url 'user:profile' %}">내 프로필</a></li>
-                  {% endif %}
-                  <li><a href="{% url 'user:logout' %}">로그아웃</a></li>
-                {% else %}
-                  <li><a href="{% url 'user:login' %}">로그인</a></li>
-                  <li><a href="{% url 'user:signup' %}">회원가입</a></li>
-                {% endif %}
-              </ul>
-            </nav>
+            {% if request.user.is_authenticated %}
+              {% if request.user.is_superuser %}
+                <a href="{% url 'user:admin_dashboard' %}">관리 페이지</a>
+                <a href="{% url 'post:create' %}">새 글 작성</a>
+              {% else %}
+                <a href="{% url 'user:profile' %}">내 프로필</a>
+              {% endif %}
+              <a href="{% url 'user:logout' %}">로그아웃</a>
+            {% else %}
+              <a href="{% url 'user:login' %}">로그인</a>
+              <a href="{% url 'user:signup' %}">회원가입</a>
+            {% endif %}
           {% endblock %}
-        </div>
+        </nav>
       </header>
       {% if messages %}
         <section class="messages">
@@ -51,8 +50,8 @@
         </section>
       {% endif %}
       {% block content %}{% endblock %}
-      <footer class="grid">
-        <small>&copy; {% now "Y" %} Spokit</small>
+      <footer class="site-footer">
+        <small>&copy; {% now "Y" %} Spokit. All rights reserved.</small>
       </footer>
     </main>
   </body>

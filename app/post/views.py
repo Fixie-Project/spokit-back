@@ -131,12 +131,22 @@ class LikeToggleView(LoginRequiredMixin, View):
         return redirect(post.get_absolute_url())
 
 
-class SubmissionCreateView(LoginRequiredMixin, FormView):
+class SubmissionCreateView(FormView):
     """공개 빌드 제출을 위한 양식입니다."""
 
     template_name = "post/submission_form.html"
     form_class = SubmissionForm
     success_url = reverse_lazy("post:submit")
+
+    def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if request.method != "GET" and not request.user.is_authenticated:
+            return redirect_to_login(next=request.path)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["show_guard"] = not self.request.user.is_authenticated
+        return context
 
     def form_valid(self, form: SubmissionForm) -> HttpResponse:
         """제출된 소개글을 저장하고 안내 메시지를 제공합니다."""
