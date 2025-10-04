@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "app.bike",
     "app.submission",
     "app.user",
+    "app.studio",
 ]
 
 MIDDLEWARE = [

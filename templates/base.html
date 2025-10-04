@@ -28,8 +28,8 @@
         <nav class="site-nav site-nav--secondary">
           {% block header_extra %}
             {% if request.user.is_authenticated %}
-              {% if request.user.is_superuser %}
-                <a href="{% url 'user:admin_dashboard' %}">관리 페이지</a>
+              {% if request.user.is_staff %}
+                <a href="{% url 'studio:dashboard' %}">Studio</a>
                 <a href="{% url 'post:create' %}">새 글 작성</a>
               {% else %}
                 <a href="{% url 'user:profile' %}">내 프로필</a>

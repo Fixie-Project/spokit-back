@@ -17,8 +17,8 @@
 - `/users/signup/` → 회원가입 (user:signup)
 - `/users/profile/` → 내 신청 현황 (user:profile)
 - `/users/submissions/<int:pk>/edit/` → 내 신청 수정 (user:submission_edit)
-- `/users/admin/dashboard/` → 관리자 대시보드 (user:admin_dashboard)
-- `/users/admin/submissions/<int:pk>/` → 관리자 신청 상세 (user:admin_submission_detail)
+- `/studio/` → Studio 관리자 대시보드 (studio:dashboard)
+- `/studio/submissions/<int:pk>/` → 신청 상세 검토 (studio:submission_detail)
 
 ## REST API (인증 필요)
 
