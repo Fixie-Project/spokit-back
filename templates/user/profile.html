@@ -26,7 +26,10 @@
         <tbody>
           {% for submission in submissions %}
           <tr>
-            <td>{{ submission.created_at|date:"Y-m-d H:i" }}</td>
+            <td>
+              <strong>{{ submission.title|default:"(제목 없음)" }}</strong><br />
+              {{ submission.created_at|date:"Y-m-d H:i" }}
+            </td>
             <td>{{ submission.get_status_display }}</td>
             <td>
               {% if submission.status == submission_status.REJECTED %}
@@ -48,7 +51,7 @@
               {% endif %}
               {% if submission.bike %}
                 <br />
-                <strong>바이크:</strong> {{ submission.bike.name }}{% if submission.bike.nickname %} ({{ submission.bike.nickname }}){% endif %}
+                <strong>바이크:</strong> {{ submission.bike.name }}
               {% endif %}
               {% with bike=submission.bike %}
               {% if bike and bike.spec and bike.spec.display_items %}

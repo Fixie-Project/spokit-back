@@ -138,23 +138,31 @@ class SubmissionCreateView(FormView):
     form_class = SubmissionForm
     success_url = reverse_lazy("post:submit")
 
+    def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if request.method != "GET" and not request.user.is_authenticated:
+            return redirect_to_login(next=request.path)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["show_guard"] = not self.request.user.is_authenticated
+        return context
+
     def form_valid(self, form: SubmissionForm) -> HttpResponse:
         """제출된 소개글을 저장하고 안내 메시지를 제공합니다."""
+        form.instance.user = self.request.user
         submission = form.save()
-        if self.request.user.is_authenticated:
-            submission.user = self.request.user
-            submission.save(update_fields=["user"])
-            if submission.bike and submission.bike.owner is None:
-                bike = submission.bike
-                base_name = bike.name or f"Submission {submission.pk}"
-                name = base_name
-                counter = 1
-                while bike.__class__.objects.filter(owner=self.request.user, name=name).exclude(pk=bike.pk).exists():
-                    counter += 1
-                    name = f"{base_name} #{counter}"
-                bike.owner = self.request.user
-                bike.name = name
-                bike.save(update_fields=["owner", "name"])
+        if submission.bike and submission.bike.owner is None:
+            bike = submission.bike
+            base_name = bike.name or f"Submission {submission.pk}"
+            name = base_name
+            counter = 1
+            while bike.__class__.objects.filter(owner=self.request.user, name=name).exclude(pk=bike.pk).exists():
+                counter += 1
+                name = f"{base_name} #{counter}"
+            bike.owner = self.request.user
+            bike.name = name
+            bike.save(update_fields=["owner", "name"])
         messages.success(
             self.request,
             "소개글 신청이 접수되었습니다. 운영자가 검토 후 연락드릴게요!",
@@ -217,7 +225,12 @@ class SubmissionLinkedPostMixin(LoginRequiredMixin, UserPassesTestMixin):
                 if draft.get("tags"):
                     initial["tags"] = [int(tag_id) for tag_id in draft.get("tags", [])]
             elif not getattr(self, "object", None):
-                initial.setdefault("title", f"{submission.submitter_name} 소개")
+                if submission.user:
+                    user_name = submission.user.get_full_name() or submission.user.get_username()
+                else:
+                    user_name = f"Submission {submission.pk}"
+                default_title = submission.title or f"{user_name} 소개"
+                initial.setdefault("title", default_title)
                 if submission.message:
                     initial.setdefault("summary", submission.message[:200])
                     initial.setdefault("body", submission.message)

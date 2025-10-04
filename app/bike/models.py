@@ -16,8 +16,6 @@ class Bike(models.Model):
         related_name="bikes",
     )
     name = models.CharField(max_length=100)
-    nickname = models.CharField(max_length=100, blank=True)
-    description = models.TextField(blank=True)
     is_primary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -27,8 +25,7 @@ class Bike(models.Model):
         unique_together = ("owner", "name")
 
     def __str__(self) -> str:
-        display = self.nickname or self.name
-        return f"{display} ({self.owner})"
+        return f"{self.name} ({self.owner})"
 
 
 class BikeSpec(models.Model):

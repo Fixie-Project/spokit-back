@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}관리자 대시보드{% endblock %}
+{% block title %}Studio 대시보드{% endblock %}
 
 {% block content %}
   <section>
-    <h2>관리자 대시보드</h2>
+    <h2>Studio 대시보드</h2>
     <p>{{ request.user.username }}님, 환영합니다. 아래에서 주요 관리 작업을 진행하세요.</p>
     <p>
       <a href="{% url 'post:create' %}" role="button" class="contrast">새 게시글 작성하기</a>
@@ -27,11 +27,24 @@
         <tbody>
           {% for submission in pending_submissions %}
             <tr>
-              <td>{{ submission.submitter_name }}</td>
-              <td>{{ submission.submitter_email }}</td>
+              <td>
+                <strong>{{ submission.title|default:"(제목 없음)" }}</strong><br />
+                {% if submission.user %}
+                  {{ submission.user.get_full_name|default:submission.user.get_username }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if submission.user and submission.user.email %}
+                  {{ submission.user.email }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
               <td>{{ submission.created_at|date:"Y-m-d H:i" }}</td>
               <td>
-                <a href="{% url 'user:admin_submission_detail' submission.id %}">검토하기</a>
+                <a href="{% url 'studio:submission_detail' submission.id %}">검토하기</a>
                 {% if submission.result_post %}
                   · <a href="{% url 'post:edit' submission.result_post.slug %}?submission={{ submission.id }}">수정</a>
                 {% endif %}
@@ -57,13 +70,23 @@
       <ul>
         {% for submission in in_progress_submissions %}
           <li>
-            <strong>{{ submission.submitter_name }}</strong> · {{ submission.created_at|date:"Y-m-d" }}
-            <span> — <a href="{% url 'user:admin_submission_detail' submission.id %}">세부 내용 확인</a>
+            <strong>
+              {% if submission.user %}
+                {{ submission.user.get_full_name|default:submission.user.get_username }}
+              {% else %}
+                -
+              {% endif %}
+            </strong>
+            · {{ submission.created_at|date:"Y-m-d" }}
+            <span> — <a href="{% url 'studio:submission_detail' submission.id %}">세부 내용 확인</a>
               {% if submission.result_post %}
                 | <a href="{% url 'post:edit' submission.result_post.slug %}?submission={{ submission.id }}">게시글 수정</a>
               {% endif %}
               {% if submission.bike %}
                 | 바이크: {{ submission.bike.nickname|default:submission.bike.name }}
+              {% endif %}
+              {% if submission.title %}
+                | 제목: {{ submission.title }}
               {% endif %}
             </span>
           </li>
@@ -95,7 +118,7 @@
     <ul>
       <li><a href="{% url 'admin:index' %}">Django 기본 관리자 이동</a></li>
       <li><a href="{% url 'post:list' %}">게시글 목록 보기</a></li>
-      <li><a href="{% url 'user:profile' %}">프로필 관리</a></li>
+      <li><a href="{% url 'studio:dashboard' %}">Studio 홈</a></li>
     </ul>
   </section>
 {% endblock %}

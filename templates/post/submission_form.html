@@ -3,32 +3,219 @@
 {% block title %}픽시 빌드 소개 신청{% endblock %}
 
 {% block content %}
-  <section class="submission-form">
-    <h2>픽시 빌드 소개 신청</h2>
-    <p>당신의 픽시 빌드를 공유하고 싶나요? 운영자가 신청서를 검토한 뒤 소개글로 정리해 드립니다.</p>
-    <p>신청 후 진행 상황은 <strong>마이페이지</strong>에서 확인할 수 있습니다.</p>
-
-    <form method="post">
-      {% csrf_token %}
-      {% for field in form %}
-        {% if field.name == "bike_name" %}
-          <h3>바이크 기본 정보</h3>
-        {% endif %}
-        {% if field.name == "frame" %}
-          <h3>부품 정보</h3>
-        {% endif %}
-        <label>
-          {{ field.label_tag }}
-          {{ field }}
-          {% if field.help_text %}
-            <small>{{ field.help_text }}</small>
-          {% endif %}
-          {% for error in field.errors %}
-            <small class="error">{{ error }}</small>
-          {% endfor %}
-        </label>
-      {% endfor %}
-      <button type="submit">신청하기</button>
-    </form>
+  <section class="submission-hero">
+    <div class="submission-hero__inner">
+      <p class="submission-hero__eyebrow">Submit Your Build</p>
+      <h1>픽시 빌드 소개 신청</h1>
+      <p class="submission-hero__lead">
+        당신의 픽시를 스포킷 아카이브에 남겨 보세요. 운영자가 내용을 검토하고 멋진 스토리로 정리해 드립니다.
+      </p>
+      <div class="submission-hero__meta">
+        <span>사진 · 부품 정보 · 소개 글을 준비해 주세요.</span>
+        <span>신청 후 진행 상황은 <strong>마이페이지</strong>에서 확인할 수 있습니다.</span>
+      </div>
+    </div>
   </section>
+
+  {% if user.is_authenticated %}
+    <section class="submission-body">
+      <div class="submission-body__main">
+        <div class="submission-steps">
+          <div class="submission-step submission-step--active">
+            <span class="submission-step__number">01</span>
+            <div>
+              <h3>소개 정보</h3>
+              <p>빌드 제목과 상세 설명을 입력해 주세요.</p>
+            </div>
+          </div>
+          <div class="submission-step">
+            <span class="submission-step__number">02</span>
+            <div>
+              <h3>부품 정보</h3>
+              <p>핵심 파츠를 가능한 한 자세히 적어 주세요.</p>
+            </div>
+          </div>
+          <div class="submission-step">
+            <span class="submission-step__number">03</span>
+            <div>
+              <h3>이미지 업로드</h3>
+              <p>전체 모습 + 디테일 사진을 여러 장 첨부할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="submission-form-card">
+          <h2>소개 신청 폼</h2>
+          <p>필수 항목은 <span class="required">*</span> 표시로 안내합니다.</p>
+          <form method="post" enctype="multipart/form-data" class="submission-form__form">
+            {{ form.media }}
+            {% csrf_token %}
+
+            <div class="submission-form__section">
+              <h3>소개 정보</h3>
+              <div class="field-grid">
+                <div class="field">
+                  {{ form.title.label_tag }}
+                  {{ form.title }}
+                  {% for error in form.title.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field field--full">
+                  {{ form.sns_links_raw.label_tag }}
+                  {{ form.sns_links_raw }}
+                  {% if form.sns_links_raw.help_text %}<small>{{ form.sns_links_raw.help_text }}</small>{% endif %}
+                  {% for error in form.sns_links_raw.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field field--full">
+                  {{ form.message.label_tag }}
+                  {{ form.message }}
+                  {% for error in form.message.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="submission-form__section">
+              <h3>부품 정보</h3>
+              <div class="field-grid field-grid--two">
+                <div class="field">
+                  {{ form.frame.label_tag }}
+                  {{ form.frame }}
+                  {% for error in form.frame.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.fork.label_tag }}
+                  {{ form.fork }}
+                  {% for error in form.fork.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.wheelset.label_tag }}
+                  {{ form.wheelset }}
+                  {% for error in form.wheelset.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.crank.label_tag }}
+                  {{ form.crank }}
+                  {% for error in form.crank.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.chainring.label_tag }}
+                  {{ form.chainring }}
+                  {% for error in form.chainring.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.cog.label_tag }}
+                  {{ form.cog }}
+                  {% for error in form.cog.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.handlebar.label_tag }}
+                  {{ form.handlebar }}
+                  {% for error in form.handlebar.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.stem.label_tag }}
+                  {{ form.stem }}
+                  {% for error in form.stem.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.saddle.label_tag }}
+                  {{ form.saddle }}
+                  {% for error in form.saddle.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.seatpost.label_tag }}
+                  {{ form.seatpost }}
+                  {% for error in form.seatpost.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  {{ form.pedal.label_tag }}
+                  {{ form.pedal }}
+                  {% for error in form.pedal.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+                <div class="field field--full">
+                  {{ form.acc.label_tag }}
+                  {{ form.acc }}
+                  {% for error in form.acc.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="submission-form__section">
+              <h3>이미지 업로드</h3>
+              <div class="field field--full">
+                {{ form.images.label_tag }}
+                {{ form.images }}
+                {% if form.images.help_text %}<small>{{ form.images.help_text }}</small>{% endif %}
+                {% for error in form.images.errors %}<small class="error">{{ error }}</small>{% endfor %}
+              </div>
+            </div>
+
+            <div class="submission-form__actions">
+              <button type="submit" class="btn btn-primary">소개 신청 보내기</button>
+              <p class="submission-form__policy">
+                신청서를 제출하면 스포킷의 소개 게시물 제작을 위한 연락에 동의한 것으로 간주됩니다.
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <aside class="submission-sidebar">
+        <div class="submission-sidebar__card">
+          <h3>준비하면 좋아요</h3>
+          <ul>
+            <li>빛이 충분한 환경에서 촬영한 전체 사진 2장 이상</li>
+            <li>프레임, 휠, 드라이브트레인 등의 디테일 컷</li>
+            <li>튜닝 스토리나 라이딩 경험을 담은 소개 글</li>
+          </ul>
+        </div>
+        <div class="submission-sidebar__card">
+          <h3>문의</h3>
+          <p>작성 중 궁금한 점이 있다면 <a href="mailto:hello@spokit.co">hello@spokit.co</a>로 문의해 주세요.</p>
+        </div>
+      </aside>
+    </section>
+  {% else %}
+    <section class="submit-guard">
+      <div class="submit-guard__hero">
+        <div class="submit-guard__icon">🔒</div>
+        <h2>로그인 후 소개 신청을 작성할 수 있어요</h2>
+        <p>스포킷 회원이 되면 자신의 픽시 빌드를 소개하고, 커뮤니티와 경험을 나눌 수 있습니다.</p>
+        <div class="submit-guard__cta">
+          <a class="btn btn-primary" href="{% url 'user:login' %}?next={{ request.path }}">로그인</a>
+          <a class="btn btn-outline" href="{% url 'user:signup' %}">무료 회원가입</a>
+        </div>
+      </div>
+
+      <div class="submit-guard__content">
+        <div class="submit-guard__benefits">
+          <h3>스포킷에 소개하면</h3>
+          <ul>
+            <li>
+              <span class="submit-guard__check">✓</span>
+              전 세계 픽시 빌더와 함께 아카이브에 기록됩니다.
+            </li>
+            <li>
+              <span class="submit-guard__check">✓</span>
+              자신의 빌드 스토리를 한 편의 콘텐츠로 정리할 수 있어요.
+            </li>
+            <li>
+              <span class="submit-guard__check">✓</span>
+              다른 라이더들과 경험을 공유하고 피드백을 받을 수 있습니다.
+            </li>
+          </ul>
+        </div>
+        <div class="submit-guard__gallery">
+          <div class="submit-guard__photo"></div>
+          <div class="submit-guard__photo"></div>
+          <div class="submit-guard__photo"></div>
+          <div class="submit-guard__photo"></div>
+        </div>
+      </div>
+
+      <div class="submit-guard__footer">
+        <h3>이미 등록된 빌드를 둘러보세요</h3>
+        <a class="btn btn-outline" href="{% url 'post:list' %}">아카이브 보기</a>
+      </div>
+    </section>
+  {% endif %}
 {% endblock %}
