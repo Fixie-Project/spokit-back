@@ -30,10 +30,6 @@
             </ul>
           {% endif %}
         {% endwith %}
-        <details>
-          <summary>신청 메시지 펼치기</summary>
-          <div class="submission-message">{{ submission.message_html }}</div>
-        </details>
       </article>
     {% endif %}
     <form method="post" id="post-form" data-autosave-url="{% url 'post:submission_autosave' %}"{% if submission %} data-submission-id="{{ submission.pk }}"{% endif %}>

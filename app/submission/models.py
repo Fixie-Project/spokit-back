@@ -1,11 +1,8 @@
 """소개 신청과 부품 정보를 관리하는 모델입니다."""
 from __future__ import annotations
 
-import html
-
 from django.conf import settings
 from django.db import models
-from django.utils.safestring import mark_safe
 
 from app.bike.models import Bike, BikeSpec
 
@@ -31,14 +28,17 @@ class Submission(models.Model):
         related_name="submissions",
     )  # 신청서를 제출한 회원
     title = models.CharField(max_length=200, default="")  # 신청서 제목
+    story_blocks = models.JSONField(default=list, blank=True)  # 질문/답변/이미지 블록
+    blocks_count = models.PositiveSmallIntegerField(default=0)  # 블록 개수
     sns_links = models.JSONField(default=list, blank=True)  # 신청자가 공유한 SNS 링크 목록
-    message = models.TextField()  # 소개 글 본문(리치 텍스트)
+    required_question_ids = models.JSONField(default=list, blank=True)  # 필수로 답한 질문 ID 목록
+    external_story_url = models.URLField(blank=True)  # 외부 노션 템플릿 등 스토리 링크
+    question_version = models.CharField(max_length=20, default="v1_3")  # 사용한 질문 버전
     status = models.CharField(
         max_length=20,
         choices=SubmissionStatus.choices,
         default=SubmissionStatus.SUBMITTED,
     )  # 신청 진행 상태
-    notes = models.TextField(blank=True)  # 운영자 메모
     rejection_reason = models.TextField(blank=True)  # 반려 사유 기록
     draft_data = models.JSONField(default=dict, blank=True)  # 임시저장된 초안 데이터
     reviewed_at = models.DateTimeField(null=True, blank=True)  # 검토 완료 시각
@@ -75,6 +75,14 @@ class Submission(models.Model):
     def __str__(self) -> str:
         display = self.title or (self.user.get_username() if self.user_id else str(self.pk))
         return f"Submission({display}, {self.status})"
+
+    def save(self, *args, **kwargs):
+        blocks = self.story_blocks or []
+        if isinstance(blocks, list):
+            self.blocks_count = len(blocks)
+        else:
+            self.blocks_count = 0
+        super().save(*args, **kwargs)
 
     def ensure_bike(
         self,
@@ -130,15 +138,6 @@ class Submission(models.Model):
                 setattr(spec, field, value or "")
         spec.save()
         return spec
-
-    @property
-    def message_html(self) -> str:
-        """리치 텍스트 메시지를 HTML로 안전하게 반환합니다."""
-
-        if not self.message:
-            return ""
-        return mark_safe(html.unescape(self.message))
-
 
 class SubmissionImage(models.Model):
     """신청서에 첨부된 이미지를 저장합니다."""

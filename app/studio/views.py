@@ -7,6 +7,7 @@ from django.views import generic
 
 from app.post.models import Post
 from app.submission.models import Submission, SubmissionStatus
+from app.submission.questions import DEFAULT_QUESTION_VERSION, load_question_set
 
 
 class StaffRequiredMixin(UserPassesTestMixin):
@@ -45,6 +46,8 @@ class DashboardView(LoginRequiredMixin, StaffRequiredMixin, generic.TemplateView
         context["total_in_progress"] = Submission.objects.filter(
             status=SubmissionStatus.IN_PROGRESS
         ).count()
+        question_set = load_question_set(DEFAULT_QUESTION_VERSION)
+        context["question_lookup"] = question_set.lookup
         return context
 
 
@@ -52,6 +55,28 @@ class SubmissionDetailView(LoginRequiredMixin, StaffRequiredMixin, generic.Detai
     template_name = "studio/submission_detail.html"
     model = Submission
     context_object_name = "submission"
+
+    def get_queryset(self):  # type: ignore[override]
+        return (
+            Submission.objects.select_related("user", "bike", "bike__spec")
+            .prefetch_related(
+                "review_notes__author",
+                "review_notes__post",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        submission: Submission = context["submission"]
+        question_set = load_question_set(submission.question_version or DEFAULT_QUESTION_VERSION)
+        context["question_lookup"] = question_set.lookup
+        context["question_group_labels"] = question_set.group_labels
+        context["selected_questions"] = [
+            question_set.lookup.get(qid, {"id": qid, "text": qid})
+            for qid in submission.required_question_ids or []
+        ]
+        context["review_notes"] = submission.review_notes.select_related("author", "post").all()
+        return context
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()

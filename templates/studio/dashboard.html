@@ -19,7 +19,6 @@
         <thead>
           <tr>
             <th scope="col">제출자</th>
-            <th scope="col">이메일</th>
             <th scope="col">신청일</th>
             <th scope="col">관리</th>
           </tr>
@@ -31,13 +30,6 @@
                 <strong>{{ submission.title|default:"(제목 없음)" }}</strong><br />
                 {% if submission.user %}
                   {{ submission.user.get_full_name|default:submission.user.get_username }}
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td>
-                {% if submission.user and submission.user.email %}
-                  {{ submission.user.email }}
                 {% else %}
                   -
                 {% endif %}
@@ -70,13 +62,7 @@
       <ul>
         {% for submission in in_progress_submissions %}
           <li>
-            <strong>
-              {% if submission.user %}
-                {{ submission.user.get_full_name|default:submission.user.get_username }}
-              {% else %}
-                -
-              {% endif %}
-            </strong>
+            <strong>{{ submission.title|default:"(제목 없음)" }}</strong>
             · {{ submission.created_at|date:"Y-m-d" }}
             <span> — <a href="{% url 'studio:submission_detail' submission.id %}">세부 내용 확인</a>
               {% if submission.result_post %}
@@ -84,9 +70,6 @@
               {% endif %}
               {% if submission.bike %}
                 | 바이크: {{ submission.bike.nickname|default:submission.bike.name }}
-              {% endif %}
-              {% if submission.title %}
-                | 제목: {{ submission.title }}
               {% endif %}
             </span>
           </li>

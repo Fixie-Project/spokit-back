@@ -5,14 +5,37 @@
 {% block content %}
   <section class="submission-hero">
     <div class="submission-hero__inner">
-      <p class="submission-hero__eyebrow">Submit Your Build</p>
-      <h1>픽시 빌드 소개 신청</h1>
+      <p class="submission-hero__eyebrow">🛠 Spokit 소개 신청서</p>
+      <h1>아래 순서를 따라 신청서를 완성해 주세요</h1>
       <p class="submission-hero__lead">
-        당신의 픽시를 스포킷 아카이브에 남겨 보세요. 운영자가 내용을 검토하고 멋진 스토리로 정리해 드립니다.
+        당신의 픽시를 스포킷 아카이브에 남겨 보세요. 운영자가 내용을 검토하고 포스팅 여부를 안내드립니다.
       </p>
       <div class="submission-hero__meta">
-        <span>사진 · 부품 정보 · 소개 글을 준비해 주세요.</span>
+        <span>사진 · 부품 정보 · 소개 자료를 미리 준비하면 빠르게 신청할 수 있어요.</span>
         <span>신청 후 진행 상황은 <strong>마이페이지</strong>에서 확인할 수 있습니다.</span>
+        <span class="submission-hero__version">현재 질문 버전: {{ question_version }}</span>
+      </div>
+      <div class="submission-hero__guide">
+        <p>아래 순서에 따라 신청을 마무리해 주세요.</p>
+        <ol class="submission-hero__steps">
+          <li>
+            <strong>1️⃣ 기본 정보와 부품 세부 정보는 필수입니다.</strong>
+            <span>(자전거 검색 및 빌드 분류에 사용됩니다.)</span>
+          </li>
+          <li>
+            <strong>2️⃣ 인터뷰 스토리는 자유롭게 선택하세요.</strong>
+            <ul>
+              <li>💬 사이트에서 간단히 작성하기</li>
+              <li>🧱 노션 템플릿 링크 첨부하기 (선택)</li>
+            </ul>
+            {% if story_template_url %}
+              <a class="submission-hero__template-link" href="{{ story_template_url }}" target="_blank" rel="noopener">Spokit Notion Template 복제하기 →</a>
+            {% endif %}
+          </li>
+          <li>
+            <strong>3️⃣ 제출 후 운영자가 내용을 검토하여 포스팅 여부를 안내드립니다.</strong>
+          </li>
+        </ol>
       </div>
     </div>
   </section>
@@ -38,8 +61,8 @@
           <div class="submission-step">
             <span class="submission-step__number">03</span>
             <div>
-              <h3>이미지 업로드</h3>
-              <p>전체 모습 + 디테일 사진을 여러 장 첨부할 수 있습니다.</p>
+              <h3>검토 후 제출</h3>
+              <p>질문별로 답변과 이미지를 채운 뒤 내용을 확인하고 제출해 주세요.</p>
             </div>
           </div>
         </div>
@@ -65,10 +88,42 @@
                   {% if form.sns_links_raw.help_text %}<small>{{ form.sns_links_raw.help_text }}</small>{% endif %}
                   {% for error in form.sns_links_raw.errors %}<small class="error">{{ error }}</small>{% endfor %}
                 </div>
+                <div class="field field--full submission-question-picker">
+                  <label class="submission-question-picker__label">{{ form.required_questions.label }}</label>
+                  <p class="submission-question-picker__intro">답변할 질문을 선택하면 운영자가 확인하기 쉬워요. 체크하지 않은 질문은 생략하셔도 됩니다.</p>
+                  {% if form.required_questions.errors %}
+                    {% for error in form.required_questions.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                  {% endif %}
+                  {% with selected=form.required_questions.value %}
+                    <div class="submission-question-picker__groups">
+                      {% for group in question_groups %}
+                        <div class="submission-question-picker__group">
+                          <h4>{{ group.label }}</h4>
+                          <ul>
+                            {% for question in group.questions %}
+                              <li>
+                                <label>
+                                  <input type="checkbox"
+                                         name="{{ form.required_questions.html_name }}"
+                                         value="{{ question.id }}"
+                                         {% if selected and question.id in selected %}checked{% endif %}>
+                                  <span class="submission-question-picker__question-text">{{ question.text }}</span>
+                                  {% if question.required %}<span class="badge">필수</span>{% endif %}
+                                </label>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endwith %}
+                  {% if form.required_questions.help_text %}<small>{{ form.required_questions.help_text }}</small>{% endif %}
+                </div>
                 <div class="field field--full">
-                  {{ form.message.label_tag }}
-                  {{ form.message }}
-                  {% for error in form.message.errors %}<small class="error">{{ error }}</small>{% endfor %}
+                  {{ form.external_story_url.label_tag }}
+                  {{ form.external_story_url }}
+                  {% if form.external_story_url.help_text %}<small>{{ form.external_story_url.help_text }}</small>{% endif %}
+                  {% for error in form.external_story_url.errors %}<small class="error">{{ error }}</small>{% endfor %}
                 </div>
               </div>
             </div>
@@ -136,16 +191,6 @@
                   {{ form.acc }}
                   {% for error in form.acc.errors %}<small class="error">{{ error }}</small>{% endfor %}
                 </div>
-              </div>
-            </div>
-
-            <div class="submission-form__section">
-              <h3>이미지 업로드</h3>
-              <div class="field field--full">
-                {{ form.images.label_tag }}
-                {{ form.images }}
-                {% if form.images.help_text %}<small>{{ form.images.help_text }}</small>{% endif %}
-                {% for error in form.images.errors %}<small class="error">{{ error }}</small>{% endfor %}
               </div>
             </div>
 

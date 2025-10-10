@@ -9,7 +9,7 @@
 - `/posts/autosave/` → 신청서 초안 자동 저장 (POST, post:submission_autosave)
 - `/tags/<slug>/` → 태그별 게시글 목록 (post:tagged)
 - `/gear-calc/` → 기어 계산 팝업에 사용되는 데이터 (post:gear_calc)
-- `/submit/` → 소개 신청 폼 (post:submit, 로그인 필요)
+- `/submit/` → 소개 신청 폼 (submission:submit, 로그인 필요)
 
 ## 사용자/관리자 페이지
 - `/users/login/` → 로그인 (user:login)
@@ -77,7 +77,14 @@
 ```
 {
   "title": "나의 픽시",
-  "message": "소개글",
+  "story_blocks": [
+    {
+      "question_id": "intro_1",
+      "answer": "제 픽시는 ...",
+      "images": ["https://cdn.example.com/123.jpg"]
+    }
+  ],
+  "external_story_url": "https://notion.so/...",
   "sns_links": ["https://instagram.com/..."],
   "bike": {
     "name": "픽시 #1",

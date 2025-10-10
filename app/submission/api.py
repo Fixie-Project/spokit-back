@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Submission
+from .questions import DEFAULT_QUESTION_VERSION, load_question_set
 from .serializers import SubmissionSerializer
 
 
@@ -31,3 +34,22 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class QuestionSetView(APIView):
+    """버전별 질문 세트를 내려줍니다."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(tags=["Submissions"], summary="질문 세트 조회")
+    def get(self, request, *args, **kwargs):
+        version = request.query_params.get("version") or DEFAULT_QUESTION_VERSION
+        question_set = load_question_set(version)
+        payload = {
+            "version": question_set.version,
+            "group_labels": question_set.group_labels,
+            "groups": question_set.groups,
+            "questions": question_set.questions,
+            "metadata": question_set.metadata,
+        }
+        return Response(payload)

@@ -76,7 +76,6 @@ class SubmissionUpdateView(LoginRequiredMixin, UserPassesTestMixin, generic.Upda
     editable_statuses = {
         SubmissionStatus.SUBMITTED,
         SubmissionStatus.IN_REVIEW,
-        SubmissionStatus.REJECTED,
     }
 
     def get_object(self, queryset=None):
@@ -95,11 +94,12 @@ class SubmissionUpdateView(LoginRequiredMixin, UserPassesTestMixin, generic.Upda
 
     def form_valid(self, form: SubmissionForm):
         form.instance.user = self.request.user
-        form.instance.status = SubmissionStatus.SUBMITTED
-        form.instance.rejection_reason = ""
-        form.instance.reviewer = None
-        form.instance.reviewed_at = None
         submission: Submission = form.save(commit=True)
+        submission.status = SubmissionStatus.SUBMITTED
+        submission.rejection_reason = ""
+        submission.reviewer = None
+        submission.reviewed_at = None
+        submission.save(update_fields=["status", "rejection_reason", "reviewer", "reviewed_at"])
         self.object = submission
         messages.success(self.request, "소개 신청서를 수정했습니다. 운영자가 다시 확인할 거예요.")
         return HttpResponseRedirect(self.get_success_url())

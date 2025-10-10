@@ -14,7 +14,6 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
-from app.submission.forms import SubmissionForm
 from app.submission.models import Submission, SubmissionStatus
 
 from .forms import CommentForm, GearCalculatorForm, PostForm
@@ -131,45 +130,6 @@ class LikeToggleView(LoginRequiredMixin, View):
         return redirect(post.get_absolute_url())
 
 
-class SubmissionCreateView(FormView):
-    """공개 빌드 제출을 위한 양식입니다."""
-
-    template_name = "post/submission_form.html"
-    form_class = SubmissionForm
-    success_url = reverse_lazy("post:submit")
-
-    def dispatch(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        if request.method != "GET" and not request.user.is_authenticated:
-            return redirect_to_login(next=request.path)
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["show_guard"] = not self.request.user.is_authenticated
-        return context
-
-    def form_valid(self, form: SubmissionForm) -> HttpResponse:
-        """제출된 소개글을 저장하고 안내 메시지를 제공합니다."""
-        form.instance.user = self.request.user
-        submission = form.save()
-        if submission.bike and submission.bike.owner is None:
-            bike = submission.bike
-            base_name = bike.name or f"Submission {submission.pk}"
-            name = base_name
-            counter = 1
-            while bike.__class__.objects.filter(owner=self.request.user, name=name).exclude(pk=bike.pk).exists():
-                counter += 1
-                name = f"{base_name} #{counter}"
-            bike.owner = self.request.user
-            bike.name = name
-            bike.save(update_fields=["owner", "name"])
-        messages.success(
-            self.request,
-            "소개글 신청이 접수되었습니다. 운영자가 검토 후 연락드릴게요!",
-        )
-        return super().form_valid(form)
-
-
 class GearCalculatorView(FormView):
     template_name = "post/gear_calculator.html"
     form_class = GearCalculatorForm
@@ -231,9 +191,12 @@ class SubmissionLinkedPostMixin(LoginRequiredMixin, UserPassesTestMixin):
                     user_name = f"Submission {submission.pk}"
                 default_title = submission.title or f"{user_name} 소개"
                 initial.setdefault("title", default_title)
-                if submission.message:
-                    initial.setdefault("summary", submission.message[:200])
-                    initial.setdefault("body", submission.message)
+                story_blocks = submission.story_blocks or []
+                if story_blocks:
+                    first_answer = story_blocks[0].get("answer", "")
+                    if first_answer:
+                        initial.setdefault("summary", first_answer[:200])
+                        initial.setdefault("body", first_answer)
         return initial
 
     def get_form(self, form_class=None):

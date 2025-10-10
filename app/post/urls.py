@@ -13,6 +13,5 @@ urlpatterns = [
     path("tags/<slug:slug>/", views.TaggedPostListView.as_view(), name="tagged"),
     path("posts/<slug:slug>/", views.PostDetailView.as_view(), name="detail"),
     path("posts/<slug:slug>/like/", views.LikeToggleView.as_view(), name="toggle_like"),
-    path("submit/", views.SubmissionCreateView.as_view(), name="submit"),
     path("gear-calc/", views.GearCalculatorView.as_view(), name="gear_calc"),
 ]

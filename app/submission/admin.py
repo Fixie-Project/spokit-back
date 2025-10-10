@@ -1,8 +1,20 @@
 """소개 신청 관련 관리자 설정입니다."""
+import json
+
 from django.contrib import admin
 from django.utils.html import format_html
 
+from app.studio.models import SubmissionReviewNote
+
 from .models import Submission, SubmissionImage
+
+
+class SubmissionReviewNoteInline(admin.TabularInline):
+    model = SubmissionReviewNote
+    extra = 0
+    fields = ("author", "post", "post_status", "note", "created_at", "updated_at")
+    autocomplete_fields = ("author", "post")
+    readonly_fields = ("created_at", "updated_at")
 
 
 class SubmissionImageInline(admin.TabularInline):
@@ -19,6 +31,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         "user_email",
         "title",
         "status",
+        "blocks_count",
         "bike_display",
         "image_count",
         "created_at",
@@ -26,14 +39,38 @@ class SubmissionAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "created_at")
     search_fields = ("title", "user__username", "user__email", "bike__name")
-    readonly_fields = ("created_at", "reviewed_at", "bike_preview")
+    readonly_fields = ("created_at", "reviewed_at", "bike_preview", "story_blocks_pretty")
     autocomplete_fields = ("user", "reviewer", "result_post", "bike")
     list_select_related = ("user", "reviewer", "result_post", "bike")
-    inlines = (SubmissionImageInline,)
+    inlines = (SubmissionImageInline, SubmissionReviewNoteInline)
 
     fieldsets = (
-        ("신청자 정보", {"fields": ("user", "title", "sns_links", "message")} ),
-        ("진행 정보", {"fields": ("status", "notes", "rejection_reason", "reviewer", "reviewed_at", "result_post", "created_at")} ),
+        (
+            "신청자 정보",
+            {
+                "fields": (
+                    "user",
+                    "title",
+                    "sns_links",
+                    "external_story_url",
+                    "required_question_ids",
+                    "story_blocks_pretty",
+                )
+            },
+        ),
+        (
+            "진행 정보",
+            {
+                "fields": (
+                    "status",
+                    "rejection_reason",
+                    "reviewer",
+                    "reviewed_at",
+                    "result_post",
+                    "created_at",
+                )
+            },
+        ),
         ("바이크", {"fields": ("bike", "bike_preview")} ),
     )
 
@@ -55,6 +92,14 @@ class SubmissionAdmin(admin.ModelAdmin):
         return obj.images.count()
 
     image_count.short_description = "이미지 수"
+
+    def story_blocks_pretty(self, obj: Submission) -> str:
+        if not obj.story_blocks:
+            return "-"
+        formatted = json.dumps(obj.story_blocks, ensure_ascii=False, indent=2)
+        return format_html("<pre style='white-space: pre-wrap;'>{}</pre>", formatted)
+
+    story_blocks_pretty.short_description = "스토리 블록"
 
     def bike_preview(self, obj: Submission) -> str:
         bike = obj.bike

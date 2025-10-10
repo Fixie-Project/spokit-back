@@ -33,7 +33,8 @@
             <td>{{ submission.get_status_display }}</td>
             <td>
               {% if submission.status == submission_status.REJECTED %}
-                반려 사유: {{ submission.rejection_reason|default:"사유 미작성" }}
+                반려 사유: {{ submission.rejection_reason|default:"사유 미작성" }}<br />
+                새 신청서를 작성해 주세요.
               {% elif submission.status == submission_status.PUBLISHED and submission.result_post %}
                 <a href="{{ submission.result_post.get_absolute_url }}" target="_blank" rel="noopener">확인하러 가기</a>
               {% elif submission.status == submission_status.IN_PROGRESS %}
@@ -45,10 +46,12 @@
               {% else %}
                 -
               {% endif %}
-              {% if submission.status == submission_status.SUBMITTED or submission.status == submission_status.IN_REVIEW or submission.status == submission_status.REJECTED %}
+              {% if submission.status == submission_status.SUBMITTED or submission.status == submission_status.IN_REVIEW %}
                 <br />
                 <a href="{% url 'user:submission_edit' submission.pk %}">신청 수정하기</a>
               {% endif %}
+              <br />
+              <a href="{% url 'submission:summary' submission.pk %}" target="_blank" rel="noopener">신청서 요약 보기</a>
               {% if submission.bike %}
                 <br />
                 <strong>바이크:</strong> {{ submission.bike.name }}
@@ -71,7 +74,7 @@
         </tbody>
       </table>
     {% else %}
-      <p>아직 소개 신청 내역이 없습니다. <a href="{% url 'post:submit' %}">소개 신청하기</a></p>
+      <p>아직 소개 신청 내역이 없습니다. <a href="{% url 'submission:submit' %}">소개 신청하기</a></p>
     {% endif %}
   </section>
 {% endblock %}

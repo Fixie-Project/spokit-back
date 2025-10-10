@@ -19,6 +19,8 @@
       </dd>
       <dt>현재 상태</dt>
       <dd>{{ submission.get_status_display }}</dd>
+      <dt>질문 버전</dt>
+      <dd>{{ submission.question_version }}</dd>
       {% if submission.bike %}
         <dt>바이크</dt>
         <dd>
@@ -39,6 +41,51 @@
           </ul>
         </dd>
       {% endif %}
+      {% if submission.external_story_url %}
+        <dt>외부 스토리 링크</dt>
+        <dd><a href="{{ submission.external_story_url }}" target="_blank" rel="noopener">{{ submission.external_story_url }}</a></dd>
+      {% endif %}
+      {% if selected_questions %}
+        <dt>선택한 질문</dt>
+        <dd>
+          <ul>
+            {% for question in selected_questions %}
+              <li>
+                <strong>{{ question.text }}</strong>
+                <small>({{ question.id }})</small>
+              </li>
+            {% endfor %}
+          </ul>
+        </dd>
+      {% endif %}
+      {% if review_notes %}
+        <dt>운영자 메모</dt>
+        <dd>
+          <ul class="review-notes">
+            {% for note in review_notes %}
+              <li>
+                <p>
+                  {% with author=note.author %}
+                    <strong>
+                      {% if author %}
+                        {{ author.get_full_name|default:author.get_username }}
+                      {% else %}
+                        운영자
+                      {% endif %}
+                    </strong>
+                  {% endwith %}
+                  {% if note.created_at %}<span class="timestamp">{{ note.created_at|date:"Y-m-d H:i" }}</span>{% endif %}
+                  {% if note.post_status %}<span class="badge">{{ note.get_post_status_display }}</span>{% endif %}
+                  {% if note.post %}
+                    <a href="{{ note.post.get_absolute_url }}" target="_blank" rel="noopener">{{ note.post.title }}</a>
+                  {% endif %}
+                </p>
+                {% if note.note %}<p>{{ note.note|linebreaksbr }}</p>{% else %}<p class="muted">(메모 없음)</p>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </dd>
+      {% endif %}
       {% if submission.images.all %}
         <dt>첨부 이미지</dt>
         <dd class="submission-images">
@@ -51,6 +98,28 @@
           </ul>
         </dd>
       {% endif %}
+      <dt>스토리 블록</dt>
+      <dd>
+        {% if submission.story_blocks %}
+          <ul class="story-blocks">
+            {% for block in submission.story_blocks %}
+              <li>
+                <strong>{{ block.question_text|default:block.question_id|default:"질문" }}</strong>
+                <p>{{ block.answer|default:"(답변 없음)"|linebreaksbr }}</p>
+                {% if block.images %}
+                  <ul class="story-block-images">
+                    {% for image in block.images %}
+                      <li><a href="{{ image.url|default:image }}" target="_blank" rel="noopener">{{ image.url|default:image }}</a></li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>등록된 스토리 블록이 없습니다.</p>
+        {% endif %}
+      </dd>
       {% with bike=submission.bike %}
       {% if bike and bike.spec %}
         <dt>부품 정보</dt>
@@ -68,8 +137,6 @@
         </dd>
       {% endif %}
       {% endwith %}
-      <dt>신청 메시지</dt>
-      <dd>{{ submission.message_html }}</dd>
       {% if submission.draft_data %}
         <dt>임시저장 내용</dt>
         <dd>

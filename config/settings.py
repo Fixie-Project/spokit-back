@@ -201,3 +201,7 @@ LOGGING = {
         "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
     },
 }
+
+
+# Submission form configuration -------------------------------------------
+SUBMISSION_STORY_TEMPLATE_URL = os.getenv("SUBMISSION_STORY_TEMPLATE_URL", "")

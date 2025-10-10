@@ -12,7 +12,7 @@ from drf_spectacular.views import (
 
 from app.bike.api import BikeViewSet
 from app.post.api import PostViewSet
-from app.submission.api import SubmissionViewSet
+from app.submission.api import QuestionSetView, SubmissionViewSet
 
 router = DefaultRouter()
 router.register(r"bikes", BikeViewSet, basename="bike")
@@ -21,11 +21,13 @@ router.register(r"posts", PostViewSet, basename="post")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", include("app.submission.urls")),
     path("", include("app.post.urls")),
     path("users/", include("app.user.urls")),
     path("ckeditor/", include("ckeditor_uploader.urls")),
     path("studio/", include("app.studio.urls")),
     path("api/", include(router.urls)),
+    path("api/question-set/", QuestionSetView.as_view(), name="question-set"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="api-schema"), name="api-redoc"),
