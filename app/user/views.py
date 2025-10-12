@@ -1,108 +1,65 @@
-"""사용자 인증과 프로필 관련 뷰를 정의합니다."""
-from django.contrib import messages
-from django.contrib.auth import login, logout
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.views import LoginView
-from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
-from django.urls import reverse, reverse_lazy
-from django.views import View, generic
+"""사용자 마이페이지 관련 API 뷰입니다."""
+from __future__ import annotations
 
-from app.submission.forms import SubmissionForm
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, views
+from rest_framework.response import Response
+
 from app.submission.models import Submission, SubmissionStatus
-
-from .forms import SignupForm
-
-
-class CustomLoginView(LoginView):
-    """권한에 맞는 기본 페이지로 보내는 로그인 뷰입니다."""
-
-    template_name = "user/login.html"
-
-    def get_success_url(self):
-        """next 값이 있으면 그대로, 없으면 권한에 맞는 기본 경로로 돌려줍니다."""
-        redirect_to = self.get_redirect_url()
-        if redirect_to:
-            return redirect_to
-        if self.request.user.is_staff:
-            return reverse("studio:dashboard")
-        return reverse("post:list")
+from app.submission.serializers import SubmissionSerializer
 
 
-class ProfileView(LoginRequiredMixin, generic.TemplateView):
-    template_name = "user/profile.html"
+class UserSubmissionListAPIView(views.APIView):
+    """로그인 사용자의 신청 목록을 반환합니다."""
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["page_title"] = "마이페이지"
+    def get(self, request) -> Response:
         submissions = (
-            Submission.objects.filter(user=self.request.user)
+            Submission.objects.filter(user=request.user)
             .select_related("bike", "bike__spec")
+            .prefetch_related("images")
             .order_by("-created_at")
         )
-        context["submissions"] = submissions
-        context["submission_status"] = SubmissionStatus
-        return context
+        serializer = SubmissionSerializer(submissions, many=True, context={"request": request})
+        return Response({"count": submissions.count(), "results": serializer.data})
 
 
-class SignupView(generic.FormView):
-    template_name = "user/signup.html"
-    form_class = SignupForm
-    success_url = reverse_lazy("post:list")
+class UserSubmissionDetailAPIView(views.APIView):
+    """특정 신청을 조회하거나 수정합니다."""
+    permission_classes = [permissions.IsAuthenticated]
 
-    def form_valid(self, form: SignupForm):
-        user = form.save()
-        login(self.request, user)
-        return super().form_valid(form)
+    def get_object(self, request, pk: int) -> Submission:
+        return get_object_or_404(Submission, pk=pk, user=request.user)
 
+    def get(self, request, pk: int) -> Response:
+        submission = self.get_object(request, pk)
+        serializer = SubmissionSerializer(submission, context={"request": request})
+        return Response(serializer.data)
 
-class LogoutRedirectView(LoginRequiredMixin, View):
-    """로그아웃하고 홈으로 돌려보내는 뷰입니다."""
-
-    def dispatch(self, request, *args, **kwargs):
-        """요청 방식을 가리지 않고 로그아웃한 뒤 홈으로 보냅니다."""
-        logout(request)
-        return redirect("post:list")
-
-
-class SubmissionUpdateView(LoginRequiredMixin, UserPassesTestMixin, generic.UpdateView):
-    """회원이 본인의 소개 신청서를 다시 제출할 때 쓰는 뷰입니다."""
-
-    model = Submission
-    form_class = SubmissionForm
-    template_name = "user/submission_edit.html"
-    success_url = reverse_lazy("user:profile")
-
-    editable_statuses = {
-        SubmissionStatus.SUBMITTED,
-        SubmissionStatus.IN_REVIEW,
-    }
-
-    def get_object(self, queryset=None):
-        obj = super().get_object(queryset)
-        self._cached_submission = obj
-        return obj
-
-    def test_func(self):
-        submission = getattr(self, "_cached_submission", None)
-        if submission is None:
-            submission = self.get_object()
-        return (
-            submission.user == self.request.user
-            and submission.status in self.editable_statuses
+    def patch(self, request, pk: int) -> Response:
+        submission = self.get_object(request, pk)
+        serializer = SubmissionSerializer(
+            submission,
+            data=request.data,
+            partial=True,
+            context={"request": request},
         )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
-    def form_valid(self, form: SubmissionForm):
-        form.instance.user = self.request.user
-        submission: Submission = form.save(commit=True)
-        submission.status = SubmissionStatus.SUBMITTED
-        submission.rejection_reason = ""
-        submission.reviewer = None
-        submission.reviewed_at = None
-        submission.save(update_fields=["status", "rejection_reason", "reviewer", "reviewed_at"])
-        self.object = submission
-        messages.success(self.request, "소개 신청서를 수정했습니다. 운영자가 다시 확인할 거예요.")
-        return HttpResponseRedirect(self.get_success_url())
 
-    def get_success_url(self):
-        return reverse("user:profile")
+class UserProfileSummaryAPIView(views.APIView):
+    """신청 상태별 통계 요약을 제공합니다."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request) -> Response:
+        submissions = Submission.objects.filter(user=request.user)
+        stats = {
+            "total": submissions.count(),
+            "by_status": {
+                status: submissions.filter(status=status).count()
+                for status in SubmissionStatus.values
+            },
+        }
+        return Response(stats)

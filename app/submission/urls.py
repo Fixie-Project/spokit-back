@@ -1,9 +1,3 @@
-from django.urls import path
+"""Submission-related extra API routes (currently none)."""
 
-from . import views
-
-app_name = "submission"
-
-urlpatterns = [
-    path("submit/", views.SubmissionCreateView.as_view(), name="submit"),
-]
+urlpatterns: list = []

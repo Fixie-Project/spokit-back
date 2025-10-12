@@ -21,12 +21,10 @@ router.register(r"posts", PostViewSet, basename="post")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("app.submission.urls")),
-    path("", include("app.post.urls")),
-    path("users/", include("app.user.urls")),
-    path("ckeditor/", include("ckeditor_uploader.urls")),
-    path("studio/", include("app.studio.urls")),
     path("api/", include(router.urls)),
+    path("api/", include("app.post.urls")),
+    path("api/", include("app.user.urls")),
+    path("api/studio/", include("app.studio.urls")),
     path("api/question-set/", QuestionSetView.as_view(), name="question-set"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),

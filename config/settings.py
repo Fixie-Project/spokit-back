@@ -29,8 +29,6 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "django_extensions",
-    "ckeditor",
-    "ckeditor_uploader",
     "app.post",
     "app.bike",
     "app.submission",
@@ -54,7 +52,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -120,44 +118,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-
-CKEDITOR_UPLOAD_PATH = "uploads/"
-CKEDITOR_IMAGE_BACKEND = "pillow"
-CKEDITOR_ALLOW_NONIMAGE_FILES = False
-CKEDITOR_CONFIGS = {
-    "default": {
-        "toolbar": [
-            {"name": "clipboard", "items": ["Undo", "Redo"]},
-            {"name": "basicstyles", "items": ["Bold", "Italic", "Underline", "RemoveFormat"]},
-            {"name": "paragraph", "items": [
-                "NumberedList", "BulletedList", "-", "Outdent", "Indent", "-",
-                "JustifyLeft", "JustifyCenter", "JustifyRight", "JustifyBlock"
-            ]},
-            {"name": "insert", "items": ["Image", "Table", "HorizontalRule", "SpecialChar"]},
-            {"name": "links", "items": ["Link", "Unlink"]},
-            {"name": "styles", "items": ["Format", "Font", "FontSize"]},
-            {"name": "colors", "items": ["TextColor", "BGColor"]},
-            {"name": "tools", "items": ["Maximize", "Source"]},
-        ],
-        "height": 400,
-        "width": "100%",
-        "extraPlugins": (
-            "uploadimage,image2,widget,lineutils,clipboard," \
-            "pastefromword,font,justify,colorbutton,colordialog"
-        ),
-
-        "removePlugins": "image",           # 기본 이미지 플러그인 제거(이미지2 사용)
-        "filebrowserUploadUrl": "/ckeditor/upload/",
-        "filebrowserBrowseUrl": "/ckeditor/browse/",
-        "imageUploadUrl": "/ckeditor/upload/",
-        "allowedContent": True,             # 사용자가 직접 스타일 조절 가능
-        "image2_alignClasses": ["img-left", "img-center", "img-right"],
-        "image2_disableResizer": False,     # 우측 하단에서 드래그로 크기 조절
-        "autoGrow_onStartup": True,
-        "autoGrow_minHeight": 300,
-        "removeDialogTabs": "link:advanced;image:advanced",
-    }
-}
 
 
 # Default primary key ------------------------------------------------------

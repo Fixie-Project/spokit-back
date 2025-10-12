@@ -64,3 +64,39 @@ class PostSerializer(serializers.ModelSerializer):
             "status": submission.status,
             "bike": BikeSerializer(submission.bike).data if submission.bike else None,
         }
+
+
+class PostWriteSerializer(serializers.ModelSerializer):
+    """게시글 생성/수정 시 사용하는 직렬화기."""
+
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), many=True, required=False
+    )
+
+    class Meta:
+        model = Post
+        fields = [
+            "title",
+            "slug",
+            "summary",
+            "body",
+            "cover_image",
+            "spec",
+            "status",
+            "featured",
+            "tags",
+        ]
+
+    def create(self, validated_data):
+        tags = validated_data.pop("tags", [])
+        post = super().create(validated_data)
+        if tags:
+            post.tags.set(tags)
+        return post
+
+    def update(self, instance, validated_data):
+        tags = validated_data.pop("tags", None)
+        post = super().update(instance, validated_data)
+        if tags is not None:
+            post.tags.set(tags)
+        return post

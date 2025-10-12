@@ -1,8 +1,8 @@
 """소개 신청 관련 API 뷰셋입니다."""
 from __future__ import annotations
 
-from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import permissions, viewsets
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample
+from rest_framework import permissions, serializers, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,12 +11,104 @@ from .questions import DEFAULT_QUESTION_VERSION, load_question_set
 from .serializers import SubmissionSerializer
 
 
+class QuestionSetResponseSerializer(serializers.Serializer):
+    version = serializers.CharField()
+    title = serializers.CharField(required=False)
+    subtitle = serializers.CharField(required=False)
+    group_labels = serializers.DictField(child=serializers.CharField())
+    sections = serializers.DictField(child=serializers.DictField(), required=False)
+    cta = serializers.DictField(required=False)
+    helper = serializers.DictField(required=False)
+    share = serializers.DictField(required=False)
+    non_selectable_groups = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
+    groups = serializers.DictField(child=serializers.ListField(child=serializers.DictField()))
+    required_ids = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+def _submission_examples():
+    return [
+        OpenApiExample(
+            name="Submission payload",
+            value={
+                "title": "Midnight Track Build",
+                "required_question_ids": ["me_1", "intro_1", "final_1"],
+                "story_blocks": [
+                    {
+                        "question_id": "intro_1",
+                        "answer": "트랙 레이스를 보고 시작했습니다.",
+                        "images": [
+                            {"url": "https://cdn.spokit.co/submissions/123/intro.jpg"}
+                        ]
+                    },
+                    {
+                        "question_id": "final_1",
+                        "answer": "밤을 가르는 한 줄기 빛",
+                        "images": []
+                    }
+                ],
+                "sns_links": ["https://instagram.com/melody_tracks"],
+                "external_story_url": "https://notion.so/spokit-midnight",
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            name="Submission response",
+            value={
+                "id": 123,
+                "title": "Midnight Track Build",
+                "required_question_ids": ["me_1", "intro_1", "final_1"],
+                "story_blocks": [
+                    {
+                        "question_id": "intro_1",
+                        "question_text": "픽시를 처음 타게 된 계기나, 이 문화에 끌리게 된 이유가 있나요?",
+                        "answer": "트랙 레이스를 보고 시작했습니다.",
+                        "images": [
+                            {"url": "https://cdn.spokit.co/submissions/123/intro.jpg"}
+                        ]
+                    },
+                    {
+                        "question_id": "final_1",
+                        "question_text": "마지막으로, 당신의 스포킷은 무엇인가요?",
+                        "answer": "밤을 가르는 한 줄기 빛",
+                        "images": []
+                    }
+                ],
+                "sns_links": ["https://instagram.com/melody_tracks"],
+                "external_story_url": "https://notion.so/spokit-midnight",
+                "blocks_count": 2,
+                "status": "in_review",
+                "created_at": "2025-05-01T21:05:11Z",
+                "question_version": "v1_3",
+            },
+            response_only=True,
+        ),
+    ]
+
+
 @extend_schema_view(
-    list=extend_schema(tags=["Submissions"], summary="소개 신청 목록 조회"),
-    retrieve=extend_schema(tags=["Submissions"], summary="소개 신청 상세 조회"),
-    create=extend_schema(tags=["Submissions"], summary="소개 신청 생성"),
-    update=extend_schema(tags=["Submissions"], summary="소개 신청 전체 수정"),
-    partial_update=extend_schema(tags=["Submissions"], summary="소개 신청 부분 수정"),
+    list=extend_schema(
+        tags=["Submissions"],
+        summary="소개 신청 목록 조회",
+        examples=_submission_examples(),
+    ),
+    retrieve=extend_schema(
+        tags=["Submissions"],
+        summary="소개 신청 상세 조회",
+        examples=_submission_examples(),
+    ),
+    create=extend_schema(
+        tags=["Submissions"],
+        summary="소개 신청 생성",
+        examples=_submission_examples(),
+    ),
+    update=extend_schema(exclude=True),
+    partial_update=extend_schema(
+        tags=["Submissions"],
+        summary="소개 신청 부분 수정",
+        examples=_submission_examples(),
+    ),
     destroy=extend_schema(tags=["Submissions"], summary="소개 신청 삭제"),
 )
 class SubmissionViewSet(viewsets.ModelViewSet):
@@ -24,6 +116,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         return (
@@ -35,13 +128,50 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        """PUT 대신 PATCH 동작으로 통일합니다."""
+
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
+
 
 class QuestionSetView(APIView):
     """버전별 질문 세트를 내려줍니다."""
 
     permission_classes = [permissions.AllowAny]
 
-    @extend_schema(tags=["Submissions"], summary="질문 세트 조회")
+    @extend_schema(
+        tags=["Submissions"],
+        summary="질문 세트 조회",
+        responses=QuestionSetResponseSerializer,
+        examples=[
+            OpenApiExample(
+                name="Question set",
+                value={
+                    "version": "v1_3",
+                    "title": "Every Spoke Tells a Story",
+                    "group_labels": {
+                        "me": "It’s Me! · 자기소개",
+                        "intro": "나와 픽시의 시작"
+                    },
+                    "groups": {
+                        "me": [
+                            {"id": "me_1", "text": "간단히 자신을 소개해주세요.", "required": True}
+                        ],
+                        "final": [
+                            {
+                                "id": "final_1",
+                                "text": "마지막으로, 당신의 스포킷은 무엇인가요?",
+                                "required": True
+                            }
+                        ]
+                    },
+                    "required_ids": ["me_1", "final_1"],
+                    "non_selectable_groups": ["final", "me"],
+                },
+            )
+        ],
+    )
     def get(self, request, *args, **kwargs):
         version = request.query_params.get("version") or DEFAULT_QUESTION_VERSION
         question_set = load_question_set(version)

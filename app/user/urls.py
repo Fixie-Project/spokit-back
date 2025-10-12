@@ -1,24 +1,12 @@
-"""사용자 인증과 프로필 관련 URL 패턴입니다."""
+"""User API routes."""
 from django.urls import path
 
-from .views import (
-    CustomLoginView,
-    LogoutRedirectView,
-    ProfileView,
-    SignupView,
-    SubmissionUpdateView,
-)
+from . import views
 
 app_name = "user"
 
 urlpatterns = [
-    path("login/", CustomLoginView.as_view(), name="login"),
-    path("logout/", LogoutRedirectView.as_view(), name="logout"),
-    path("profile/", ProfileView.as_view(), name="profile"),
-    path("signup/", SignupView.as_view(), name="signup"),
-    path(
-        "submissions/<int:pk>/edit/",
-        SubmissionUpdateView.as_view(),
-        name="submission_edit",
-    ),
+    path("me/submissions/", views.UserSubmissionListAPIView.as_view(), name="submissions"),
+    path("me/submissions/<int:pk>/", views.UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
+    path("me/profile/", views.UserProfileSummaryAPIView.as_view(), name="profile"),
 ]

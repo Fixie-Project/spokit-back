@@ -1,58 +1,26 @@
 # Spokit Backend Endpoints
 
-## Public Pages (Django templates)
-- `/` → 게시글 리스트 / 홈 (post:list)
-- `/posts/new/` → 새 게시글 작성 (post:create, 로그인 필요)
-- `/posts/<slug>/edit/` → 게시글 수정 (post:edit)
-- `/posts/<slug>/` → 게시글 상세 (post:detail)
-- `/posts/<slug>/like/` → 좋아요 토글 (POST, post:toggle_like)
-- `/posts/autosave/` → 신청서 초안 자동 저장 (POST, post:submission_autosave)
-- `/tags/<slug>/` → 태그별 게시글 목록 (post:tagged)
-- `/gear-calc/` → 기어 계산 팝업에 사용되는 데이터 (post:gear_calc)
-- `/submit/` → 소개 신청 폼 (submission:submit, 로그인 필요)
-
-## 사용자/관리자 페이지
-- `/users/login/` → 로그인 (user:login)
-- `/users/logout/` → 로그아웃 (user:logout)
-- `/users/signup/` → 회원가입 (user:signup)
-- `/users/profile/` → 내 신청 현황 (user:profile)
-- `/users/submissions/<int:pk>/edit/` → 내 신청 수정 (user:submission_edit)
-- `/studio/` → Studio 관리자 대시보드 (studio:dashboard)
-- `/studio/submissions/<int:pk>/` → 신청 상세 검토 (studio:submission_detail)
-
 ## REST API (인증 필요)
 
 ### Posts
 - `GET /api/posts/`
   설명: 게시글 목록. staff는 모든 상태, 일반 사용자는 발행(PUBLISHED)된 게시글만 확인
-  쿼리: DRF 페이지네이션(`?page=1`, `?page_size=20` 등)
-  응답 예시:
-```
-[
-  {
-    "id": 1,
-    "title": "테스트 게시글",
-    "slug": "test-post",
-    "summary": "요약",
-    "body": "본문",
-    "status": "published",
-    "published_at": "2025-09-20T12:34:56Z",
-    "cover_image": null,
-    "tags": [1, 2]
-  }
-]
-```
-
+- `GET /api/posts/<slug>/`
+  설명: 슬러그 기준 게시글 상세
 - `POST /api/posts/`
-  설명: 새 게시글 생성 (staff 권한)
-  본문(JSON): `title`, `slug`, `summary`, `body`, `status`, `featured`, `tags`, `cover_image` 등
-
-- `GET /api/posts/<id>/`
-  설명: 게시글 상세
-- `PUT/PATCH /api/posts/<id>/`
-  설명: 게시글 수정
-- `DELETE /api/posts/<id>/`
-  설명: 게시글 삭제
+  설명: 게시글 생성 (스태프 전용)
+- `PATCH /api/posts/<slug>/`
+  설명: 게시글 부분 수정 (스태프 전용)
+- `DELETE /api/posts/<slug>/`
+  설명: 게시글 삭제 (스태프 전용)
+- `POST /api/posts/<slug>/like/`
+  설명: 좋아요 토글 (로그인 필요)
+- `POST /api/posts/<slug>/comments/`
+  설명: 댓글 작성 (`content` 필드 필요, 로그인 필요)
+- `POST /api/gear-calc/`
+  설명: 기어비 계산. 본문 예시: `{ "front_teeth": 48, "rear_teeth": 17, "wheel_size": "700c" }`
+- `POST /api/posts/autosave/`
+  설명: 신청 기반 게시글 초안 자동 저장 (`submission`, `draft` 필드 필요, 스태프 전용)
 
 ### Bikes
 - `GET /api/bikes/`
@@ -94,10 +62,30 @@
 ```
 - `GET /api/submissions/<id>/`
   설명: 소개 신청 상세 (본인 or 관리자)
-- `PUT/PATCH /api/submissions/<id>/`
-  설명: 소개 신청 수정
+- `PATCH /api/submissions/<id>/`
+  설명: 소개 신청 부분 수정(필요한 필드만 전달)
 - `DELETE /api/submissions/<id>/`
   설명: 소개 신청 삭제
+
+### User (My Page)
+- `GET /api/me/profile/`
+  설명: 내 신청 통계
+- `GET /api/me/submissions/`
+  설명: 내 신청 목록 (로그인 필요)
+- `GET /api/me/submissions/<id>/`
+  설명: 신청 상세 (로그인 필요)
+- `PATCH /api/me/submissions/<id>/`
+  설명: 신청 일부 수정 (스토리 블록/외부 링크 등)
+
+### Studio (Staff 전용)
+- `GET /api/studio/dashboard/`
+  설명: 대기/진행 중 신청 요약 (스태프 권한)
+- `GET /api/studio/submissions/<id>/`
+  설명: 신청 상세 및 검토 메모 (스태프 권한)
+- `PATCH /api/studio/submissions/<id>/`
+  설명: 신청 내용/상태 부분 수정 (스태프 권한)
+- `POST /api/studio/submissions/<id>/notes/`
+  설명: 검토 메모 등록 (스태프 권한)
 
 ### 문서/스키마
 - `GET /api/schema/` → OpenAPI 스키마(JSON)
@@ -105,8 +93,6 @@
 - `GET /api/redoc/` → ReDoc 문서
 
 ## 기타 엔드포인트
-- `POST /ckeditor/upload/` → CKEditor 이미지 업로드
-- `GET /ckeditor/browse/`
 - `/media/<path>` → runserver 개발 환경에서 미디어 서빙
 - `/admin/...` → Django admin 전체
 

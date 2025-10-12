@@ -1,116 +1,93 @@
-from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.shortcuts import redirect
-from django.urls import reverse
-from django.utils import timezone
-from django.views import generic
+"""스태프 전용 신청 관리 API 모음입니다."""
+from __future__ import annotations
 
-from app.post.models import Post
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, serializers, status, views
+from rest_framework.response import Response
+
 from app.submission.models import Submission, SubmissionStatus
-from app.submission.questions import DEFAULT_QUESTION_VERSION, load_question_set
+from app.submission.serializers import SubmissionSerializer
+from app.studio.models import SubmissionReviewNote
 
 
-class StaffRequiredMixin(UserPassesTestMixin):
-    """스태프 권한 사용자만 접근하도록 제한합니다."""
+class StaffRequired(permissions.BasePermission):
+    """스태프 여부를 검사하는 커스텀 권한 클래스."""
 
-    def test_func(self):
-        user = self.request.user
-        return user.is_authenticated and user.is_staff
-
-    def handle_no_permission(self):
-        # 로그인한 일반 사용자는 홈으로 돌려보내고, 비로그인은 기본 처리에 따릅니다.
-        if self.request.user.is_authenticated:
-            return redirect("post:list")
-        return super().handle_no_permission()
+    def has_permission(self, request, view) -> bool:
+        return request.user.is_authenticated and request.user.is_staff
 
 
-class DashboardView(LoginRequiredMixin, StaffRequiredMixin, generic.TemplateView):
-    template_name = "studio/dashboard.html"
+class ReviewNoteSerializer(serializers.ModelSerializer):
+    """검토 메모 직렬화기 (읽기 전용 필드 포함)."""
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["pending_submissions"] = (
-            Submission.objects.filter(status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW])
-            .select_related("bike", "bike__spec")
-            .order_by("-created_at")[:5]
-        )
-        context["in_progress_submissions"] = (
-            Submission.objects.filter(status=SubmissionStatus.IN_PROGRESS)
-            .select_related("bike", "bike__spec")
-            .order_by("-reviewed_at", "-created_at")[:5]
-        )
-        context["recent_posts"] = Post.objects.order_by("-created_at")[:5]
-        context["total_pending"] = Submission.objects.filter(
+    class Meta:
+        model = SubmissionReviewNote
+        fields = ["id", "author", "post", "post_status", "note", "created_at", "updated_at"]
+        read_only_fields = ["id", "author", "post", "created_at", "updated_at"]
+
+
+class StudioDashboardAPIView(views.APIView):
+    """대시보드용 신청 현황 요약을 반환합니다."""
+
+    permission_classes = [StaffRequired]
+
+    def get(self, request) -> Response:
+        pending = Submission.objects.filter(
             status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW]
-        ).count()
-        context["total_in_progress"] = Submission.objects.filter(
-            status=SubmissionStatus.IN_PROGRESS
-        ).count()
-        question_set = load_question_set(DEFAULT_QUESTION_VERSION)
-        context["question_lookup"] = question_set.lookup
-        return context
+        ).select_related("bike", "bike__spec")
+        in_progress = Submission.objects.filter(status=SubmissionStatus.IN_PROGRESS)
+        payload = {
+            "total_pending": pending.count(),
+            "total_in_progress": in_progress.count(),
+            "pending": SubmissionSerializer(pending, many=True, context={"request": request}).data,
+            "in_progress": SubmissionSerializer(in_progress, many=True, context={"request": request}).data,
+        }
+        return Response(payload)
 
 
-class SubmissionDetailView(LoginRequiredMixin, StaffRequiredMixin, generic.DetailView):
-    template_name = "studio/submission_detail.html"
-    model = Submission
-    context_object_name = "submission"
+class StudioSubmissionDetailAPIView(views.APIView):
+    """특정 신청 세부 정보와 검토 메모를 관리합니다."""
 
-    def get_queryset(self):  # type: ignore[override]
-        return (
-            Submission.objects.select_related("user", "bike", "bike__spec")
-            .prefetch_related(
-                "review_notes__author",
-                "review_notes__post",
-            )
+    permission_classes = [StaffRequired]
+
+    def get_object(self, pk: int) -> Submission:
+        return get_object_or_404(
+            Submission.objects.select_related("bike", "bike__spec").prefetch_related("images", "review_notes"),
+            pk=pk,
         )
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        submission: Submission = context["submission"]
-        question_set = load_question_set(submission.question_version or DEFAULT_QUESTION_VERSION)
-        context["question_lookup"] = question_set.lookup
-        context["question_group_labels"] = question_set.group_labels
-        context["selected_questions"] = [
-            question_set.lookup.get(qid, {"id": qid, "text": qid})
-            for qid in submission.required_question_ids or []
-        ]
-        context["review_notes"] = submission.review_notes.select_related("author", "post").all()
-        return context
+    def get(self, request, pk: int) -> Response:
+        submission = self.get_object(pk)
+        serializer = SubmissionSerializer(submission, context={"request": request})
+        notes = ReviewNoteSerializer(submission.review_notes.all(), many=True).data
+        return Response({"submission": serializer.data, "review_notes": notes})
 
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        submission = self.object
-        if submission.status == SubmissionStatus.SUBMITTED:
-            submission.status = SubmissionStatus.IN_REVIEW
-            submission.reviewer = request.user
-            submission.reviewed_at = timezone.now()
-            submission.save(update_fields=["status", "reviewer", "reviewed_at"])
-        context = self.get_context_data(object=submission)
-        return self.render_to_response(context)
+    def patch(self, request, pk: int) -> Response:
+        submission = self.get_object(pk)
+        serializer = SubmissionSerializer(
+            submission,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
-    def post(self, request, *args, **kwargs):
-        submission = self.get_object()
-        action = request.POST.get("action")
-        if action == "start_draft":
-            submission.status = SubmissionStatus.IN_PROGRESS
-            submission.reviewer = request.user
-            submission.reviewed_at = submission.reviewed_at or timezone.now()
-            submission.save(update_fields=["status", "reviewer", "reviewed_at"])
-            messages.success(request, "포스팅 준비를 시작했습니다. 자동 임시저장이 활성화됩니다.")
-            if submission.result_post:
-                edit_url = f"{reverse('post:edit', kwargs={'slug': submission.result_post.slug})}?submission={submission.pk}"
-                return redirect(edit_url)
-            create_url = f"{reverse('post:create')}?submission={submission.pk}"
-            return redirect(create_url)
-        if action == "reject":
-            reason = (request.POST.get("rejection_reason") or "").strip()
-            if not reason:
-                messages.error(request, "반려 사유를 입력해 주세요.")
-            else:
-                submission.status = SubmissionStatus.REJECTED
-                submission.rejection_reason = reason
-                submission.result_post = None
-                submission.save(update_fields=["status", "rejection_reason", "result_post"])
-                messages.success(request, "신청서를 반려했습니다.")
-        return redirect(self.request.path)
+
+class StudioReviewNoteAPIView(views.APIView):
+    """신청에 대한 검토 메모를 작성합니다."""
+
+    permission_classes = [StaffRequired]
+
+    def post(self, request, pk: int) -> Response:
+        submission = get_object_or_404(Submission, pk=pk)
+        serializer = ReviewNoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        note = SubmissionReviewNote.objects.create(
+            submission=submission,
+            author=request.user,
+            post_status=serializer.validated_data.get("post_status", ""),
+            note=serializer.validated_data.get("note", ""),
+        )
+        return Response(ReviewNoteSerializer(note).data, status=status.HTTP_201_CREATED)

@@ -18,6 +18,17 @@ class SubmissionImageSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class StoryBlockImageSerializer(serializers.Serializer):
+    url = serializers.URLField()
+
+
+class StoryBlockSerializer(serializers.Serializer):
+    question_id = serializers.CharField()
+    question_text = serializers.CharField(required=False, allow_blank=True)
+    answer = serializers.CharField()
+    images = StoryBlockImageSerializer(many=True, required=False)
+
+
 class SubmissionSerializer(serializers.ModelSerializer):
     """소개 신청과 관련된 정보를 직렬화합니다."""
 
@@ -28,7 +39,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
     required_question_ids = serializers.ListField(
         child=serializers.CharField(), required=False
     )
-    story_blocks = serializers.ListField(child=serializers.DictField(), required=False)
+    story_blocks = StoryBlockSerializer(many=True, required=False)
     external_story_url = serializers.URLField(required=False, allow_blank=True)
     question_version = serializers.CharField(required=False, allow_blank=False)
     images = SubmissionImageSerializer(many=True, read_only=True)
