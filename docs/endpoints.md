@@ -84,8 +84,6 @@
   설명: 신청 상세 및 검토 메모 (스태프 권한)
 - `PATCH /api/studio/submissions/<id>/`
   설명: 신청 내용/상태 부분 수정 (스태프 권한)
-- `POST /api/studio/submissions/<id>/notes/`
-  설명: 검토 메모 등록 (스태프 권한)
 
 ### 문서/스키마
 - `GET /api/schema/` → OpenAPI 스키마(JSON)

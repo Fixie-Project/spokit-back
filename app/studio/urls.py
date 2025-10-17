@@ -8,5 +8,4 @@ app_name = "studio"
 urlpatterns = [
     path("dashboard/", views.StudioDashboardAPIView.as_view(), name="dashboard"),
     path("submissions/<int:pk>/", views.StudioSubmissionDetailAPIView.as_view(), name="submission-detail"),
-    path("submissions/<int:pk>/notes/", views.StudioReviewNoteAPIView.as_view(), name="submission-note"),
 ]

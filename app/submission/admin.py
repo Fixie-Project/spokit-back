@@ -4,17 +4,7 @@ import json
 from django.contrib import admin
 from django.utils.html import format_html
 
-from app.studio.models import SubmissionReviewNote
-
 from .models import Submission, SubmissionImage
-
-
-class SubmissionReviewNoteInline(admin.TabularInline):
-    model = SubmissionReviewNote
-    extra = 0
-    fields = ("author", "post", "post_status", "note", "created_at", "updated_at")
-    autocomplete_fields = ("author", "post")
-    readonly_fields = ("created_at", "updated_at")
 
 
 class SubmissionImageInline(admin.TabularInline):
@@ -42,7 +32,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "reviewed_at", "bike_preview", "story_blocks_pretty")
     autocomplete_fields = ("user", "reviewer", "result_post", "bike")
     list_select_related = ("user", "reviewer", "result_post", "bike")
-    inlines = (SubmissionImageInline, SubmissionReviewNoteInline)
+    inlines = (SubmissionImageInline,)
 
     fieldsets = (
         (
