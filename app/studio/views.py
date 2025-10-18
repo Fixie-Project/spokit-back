@@ -24,13 +24,13 @@ class StudioDashboardAPIView(views.APIView):
     def get(self, request) -> Response:
         pending = Submission.objects.filter(
             status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW]
-        ).select_related("bike", "bike__spec")
-        in_progress = Submission.objects.filter(status=SubmissionStatus.IN_PROGRESS)
+        ).select_related("bike", "build")
+        posting = Submission.objects.filter(status=SubmissionStatus.POSTING)
         payload = {
             "total_pending": pending.count(),
-            "total_in_progress": in_progress.count(),
+            "total_posting": posting.count(),
             "pending": SubmissionSerializer(pending, many=True, context={"request": request}).data,
-            "in_progress": SubmissionSerializer(in_progress, many=True, context={"request": request}).data,
+            "posting": SubmissionSerializer(posting, many=True, context={"request": request}).data,
         }
         return Response(payload)
 
@@ -40,18 +40,18 @@ class StudioSubmissionDetailAPIView(views.APIView):
 
     permission_classes = [StaffRequired]
 
-    def get_object(self, pk: int) -> Submission:
+    def get_object(self, pk: str) -> Submission:
         return get_object_or_404(
-            Submission.objects.select_related("bike", "bike__spec").prefetch_related("images"),
+            Submission.objects.select_related("bike", "build").prefetch_related("images"),
             pk=pk,
         )
 
-    def get(self, request, pk: int) -> Response:
+    def get(self, request, pk: str) -> Response:
         submission = self.get_object(pk)
         serializer = SubmissionSerializer(submission, context={"request": request})
         return Response({"submission": serializer.data})
 
-    def patch(self, request, pk: int) -> Response:
+    def patch(self, request, pk: str) -> Response:
         submission = self.get_object(pk)
         serializer = SubmissionSerializer(
             submission,

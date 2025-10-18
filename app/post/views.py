@@ -5,9 +5,6 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions, serializers, status, views
 from rest_framework.response import Response
 
-from app.submission.models import Submission
-
-from .forms import GearCalculatorForm
 from .models import Comment, Like, Post, PostStatus
 
 
@@ -63,21 +60,3 @@ class CommentCreateAPIView(views.APIView):
 #             return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
 #         return Response(form.calculate())
 
-
-class SubmissionDraftAutosaveAPIView(views.APIView):
-    """신청서를 기반으로 작성 중인 게시글 초안을 저장합니다."""
-
-    permission_classes = [permissions.IsAdminUser]
-
-    def post(self, request) -> Response:
-        submission_id = request.data.get("submission")
-        if not submission_id:
-            return Response({"detail": "submission 필드가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
-        submission = get_object_or_404(Submission, pk=submission_id)
-        draft = request.data.get("draft", {})
-        if not isinstance(draft, dict):
-            return Response({"detail": "draft는 객체 형태여야 합니다."}, status=status.HTTP_400_BAD_REQUEST)
-        draft["saved_at"] = request.data.get("saved_at") or submission.reviewed_at or submission.created_at
-        submission.draft_data = draft
-        submission.save(update_fields=["draft_data"])
-        return Response({"saved": True, "draft": submission.draft_data})

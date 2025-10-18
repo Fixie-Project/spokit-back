@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "django_extensions",
+    "app.core",
     "app.post",
     "app.bike",
     "app.submission",
@@ -146,6 +147,14 @@ SPECTACULAR_SETTINGS = {
 LOGIN_URL = "user:login"
 LOGIN_REDIRECT_URL = "user:profile"
 LOGOUT_REDIRECT_URL = "post:list"
+AUTH_USER_MODEL = "user.User"
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
 
 # Logging ------------------------------------------------------------------
 LOGGING = {

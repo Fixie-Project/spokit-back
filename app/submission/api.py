@@ -33,13 +33,12 @@ def _submission_examples():
             name="Submission payload",
             value={
                 "title": "Midnight Track Build",
-                "required_question_ids": ["me_1", "intro_1", "final_1"],
                 "story_blocks": [
                     {
                         "question_id": "intro_1",
                         "answer": "트랙 레이스를 보고 시작했습니다.",
                         "images": [
-                            {"url": "https://cdn.spokit.co/submissions/123/intro.jpg"}
+                            "https://cdn.spokit.co/submissions/123/intro.jpg"
                         ]
                     },
                     {
@@ -48,25 +47,24 @@ def _submission_examples():
                         "images": []
                     }
                 ],
-                "sns_links": ["https://instagram.com/melody_tracks"],
-                "external_story_url": "https://notion.so/spokit-midnight",
+                "build_snapshot": {
+                    "frame_brand": "Affinity",
+                    "frame_name": "Midnight Run",
+                },
             },
             request_only=True,
         ),
         OpenApiExample(
             name="Submission response",
             value={
-                "id": 123,
+                "id": "b8d2f8ab-2d8a-4c97-b6c3-1b9f9d6fb112",
                 "title": "Midnight Track Build",
-                "required_question_ids": ["me_1", "intro_1", "final_1"],
                 "story_blocks": [
                     {
                         "question_id": "intro_1",
                         "question_text": "픽시를 처음 타게 된 계기나, 이 문화에 끌리게 된 이유가 있나요?",
                         "answer": "트랙 레이스를 보고 시작했습니다.",
-                        "images": [
-                            {"url": "https://cdn.spokit.co/submissions/123/intro.jpg"}
-                        ]
+                        "images": ["https://cdn.spokit.co/submissions/123/intro.jpg"]
                     },
                     {
                         "question_id": "final_1",
@@ -75,12 +73,13 @@ def _submission_examples():
                         "images": []
                     }
                 ],
-                "sns_links": ["https://instagram.com/melody_tracks"],
-                "external_story_url": "https://notion.so/spokit-midnight",
-                "blocks_count": 2,
-                "status": "in_review",
+                "build_snapshot": {
+                    "frame_brand": "Affinity",
+                    "frame_name": "Midnight Run",
+                },
+                "status": "submitted",
                 "created_at": "2025-05-01T21:05:11Z",
-                "question_version": "v1_3",
+                "updated_at": "2025-05-10T11:22:33Z",
             },
             response_only=True,
         ),
@@ -119,11 +118,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return (
-            Submission.objects.filter(user=self.request.user)
-            .select_related("bike", "bike__spec", "result_post")
-            .prefetch_related("images")
-        )
+        return Submission.objects.filter(user=self.request.user).select_related("bike", "build").prefetch_related("images")
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

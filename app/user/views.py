@@ -16,7 +16,7 @@ class UserSubmissionListAPIView(views.APIView):
     def get(self, request) -> Response:
         submissions = (
             Submission.objects.filter(user=request.user)
-            .select_related("bike", "bike__spec")
+            .select_related("bike", "build")
             .prefetch_related("images")
             .order_by("-created_at")
         )
@@ -28,15 +28,15 @@ class UserSubmissionDetailAPIView(views.APIView):
     """특정 신청을 조회하거나 수정합니다."""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self, request, pk: int) -> Submission:
+    def get_object(self, request, pk: str) -> Submission:
         return get_object_or_404(Submission, pk=pk, user=request.user)
 
-    def get(self, request, pk: int) -> Response:
+    def get(self, request, pk: str) -> Response:
         submission = self.get_object(request, pk)
         serializer = SubmissionSerializer(submission, context={"request": request})
         return Response(serializer.data)
 
-    def patch(self, request, pk: int) -> Response:
+    def patch(self, request, pk: str) -> Response:
         submission = self.get_object(request, pk)
         serializer = SubmissionSerializer(
             submission,

@@ -8,7 +8,7 @@ from django.contrib.auth.forms import UserCreationForm
 
 class SignupForm(UserCreationForm):
     email = forms.EmailField(label="이메일", required=True)
-    nickname = forms.CharField(label="닉네임", required=False)
+    nickname = forms.CharField(label="닉네임", required=True)
 
     class Meta(UserCreationForm.Meta):
         model = get_user_model()
@@ -19,7 +19,7 @@ class SignupForm(UserCreationForm):
         user.email = self.cleaned_data["email"]
         nickname = self.cleaned_data.get("nickname")
         if nickname:
-            user.first_name = nickname
+            user.nickname = nickname
         if commit:
             user.save()
         return user

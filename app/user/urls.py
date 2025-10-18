@@ -7,6 +7,6 @@ app_name = "user"
 
 urlpatterns = [
     path("me/submissions/", views.UserSubmissionListAPIView.as_view(), name="submissions"),
-    path("me/submissions/<int:pk>/", views.UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
+    path("me/submissions/<uuid:pk>/", views.UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
     path("me/profile/", views.UserProfileSummaryAPIView.as_view(), name="profile"),
 ]

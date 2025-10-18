@@ -23,7 +23,7 @@ class BikeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Bike.objects.filter(owner=self.request.user).select_related("spec")
+        return Bike.objects.filter(owner=self.request.user).prefetch_related("builds")
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

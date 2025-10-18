@@ -6,7 +6,7 @@ from rest_framework import permissions, viewsets
 
 from app.submission.models import Submission, SubmissionStatus
 
-from .models import Post
+from .models import Post, PostStatus
 from .serializers import PostSerializer, PostWriteSerializer
 
 
@@ -40,8 +40,8 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
     queryset = (
-        Post.objects.select_related("author")
-        .prefetch_related("tags", "likes", "source_submissions")
+        Post.objects.select_related("author", "submission", "bike", "build", "rider")
+        .prefetch_related("tags", "likes")
         .all()
     )
 
@@ -58,29 +58,25 @@ class PostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
-            qs = qs.filter(status="published")
+            qs = qs.filter(status=PostStatus.PUBLISHED)
         return qs
 
     def perform_create(self, serializer):
-        post = serializer.save(author=self.request.user)
-        submission_id = self.request.data.get("submission")
-        if submission_id:
-            submission = Submission.objects.filter(pk=submission_id).first()
-            if submission:
-                submission.result_post = post
-                if submission.status not in {SubmissionStatus.PUBLISHED, SubmissionStatus.IN_PROGRESS}:
-                    submission.status = SubmissionStatus.IN_PROGRESS
-                submission.save(update_fields=["result_post", "status"])
+        staff = getattr(self.request.user, "staff_profile", None)
+        post = serializer.save(author=staff)
+        submission = post.submission
+        if submission and submission.status not in {SubmissionStatus.PUBLISHED, SubmissionStatus.POSTING}:
+            submission.status = SubmissionStatus.POSTING
+            submission.save(update_fields=["status", "updated_at"])
 
     def perform_update(self, serializer):
         post = serializer.save()
-        submission_id = self.request.data.get("submission")
-        if submission_id:
-            submission = Submission.objects.filter(pk=submission_id).first()
-            if submission and submission.result_post_id != post.id:
-                submission.result_post = post
-                submission.save(update_fields=["result_post"])
+        submission = post.submission
+        if submission and submission.status == SubmissionStatus.POSTING and post.status == PostStatus.PUBLISHED:
+            submission.status = SubmissionStatus.PUBLISHED
+            submission.save(update_fields=["status", "updated_at"])
 
     def perform_destroy(self, instance):
-        Submission.objects.filter(result_post=instance).update(result_post=None)
+        if instance.submission_id:
+            Submission.objects.filter(pk=instance.submission_id).update(status=SubmissionStatus.APPROVED)
         super().perform_destroy(instance)

@@ -1,87 +1,60 @@
-"""소개 신청 관련 관리자 설정입니다."""
+"""Submission admin configuration for the new schema."""
 import json
 
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Submission, SubmissionImage
+from .models import Submission, SubmissionImage, SubmissionStatusLog
 
 
 class SubmissionImageInline(admin.TabularInline):
     model = SubmissionImage
     extra = 0
-    fields = ("image", "created_at")
+    fields = ("purpose", "order", "url", "caption", "created_at")
     readonly_fields = ("created_at",)
 
 
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
     list_display = (
-        "user",
-        "user_email",
         "title",
+        "user",
         "status",
-        "blocks_count",
-        "bike_display",
-        "image_count",
+        "bike",
+        "build",
         "created_at",
-        "reviewed_at",
+        "updated_at",
     )
     list_filter = ("status", "created_at")
-    search_fields = ("title", "user__username", "user__email", "bike__name")
-    readonly_fields = ("created_at", "reviewed_at", "bike_preview", "story_blocks_pretty")
-    autocomplete_fields = ("user", "reviewer", "result_post", "bike")
-    list_select_related = ("user", "reviewer", "result_post", "bike")
+    search_fields = ("title", "user__username", "user__email", "bike__frame_name")
+    readonly_fields = ("created_at", "updated_at", "story_blocks_pretty", "build_snapshot_pretty")
+    autocomplete_fields = ("user", "bike", "build")
+    list_select_related = ("user", "bike", "build")
     inlines = (SubmissionImageInline,)
 
     fieldsets = (
         (
-            "신청자 정보",
+            "기본 정보",
             {
                 "fields": (
                     "user",
                     "title",
-                    "sns_links",
-                    "external_story_url",
-                    "required_question_ids",
-                    "story_blocks_pretty",
+                    "bike",
+                    "build",
+                    "status",
+                    "rejection_reason",
                 )
             },
         ),
         (
-            "진행 정보",
-            {
-                "fields": (
-                    "status",
-                    "rejection_reason",
-                    "reviewer",
-                    "reviewed_at",
-                    "result_post",
-                    "created_at",
-                )
-            },
+            "스토리",
+            {"fields": ("build_snapshot_pretty", "story_blocks_pretty")},
         ),
-        ("바이크", {"fields": ("bike", "bike_preview")} ),
+        (
+            "시스템",
+            {"fields": ("created_at", "updated_at")},
+        ),
     )
-
-    def bike_display(self, obj: Submission) -> str:
-        if not obj.bike:
-            return "-"
-        return obj.bike.name
-
-    bike_display.short_description = "바이크"
-
-    def user_email(self, obj: Submission) -> str:
-        if not obj.user:
-            return "-"
-        return obj.user.email or obj.user.get_username()
-
-    user_email.short_description = "이메일"
-
-    def image_count(self, obj: Submission) -> int:
-        return obj.images.count()
-
-    image_count.short_description = "이미지 수"
 
     def story_blocks_pretty(self, obj: Submission) -> str:
         if not obj.story_blocks:
@@ -91,18 +64,19 @@ class SubmissionAdmin(admin.ModelAdmin):
 
     story_blocks_pretty.short_description = "스토리 블록"
 
-    def bike_preview(self, obj: Submission) -> str:
-        bike = obj.bike
-        if not bike:
+    def build_snapshot_pretty(self, obj: Submission) -> str:
+        if not obj.build_snapshot:
             return "-"
-        spec = getattr(bike, "spec", None)
-        parts = "<br />".join(
-            f"<strong>{label}</strong>: {value}" for label, value in (spec.display_items if spec else [])
-        )
-        return format_html(
-            "<p><strong>{}</strong></p><p>{}</p>",
-            bike.name,
-            parts or "등록된 부품 정보가 없습니다.",
-        )
+        formatted = json.dumps(obj.build_snapshot, ensure_ascii=False, indent=2)
+        return format_html("<pre style='white-space: pre-wrap;'>{}</pre>", formatted)
 
-    bike_preview.short_description = "바이크 상세"
+    build_snapshot_pretty.short_description = "빌드 스냅샷"
+
+
+@admin.register(SubmissionStatusLog)
+class SubmissionStatusLogAdmin(admin.ModelAdmin):
+    list_display = ("submission", "from_status", "to_status", "changed_by_staff", "changed_by_user", "changed_at")
+    list_filter = ("to_status", "changed_at")
+    search_fields = ("submission__title", "changed_by_staff__user__nickname", "changed_by_user__nickname")
+    autocomplete_fields = ("submission", "changed_by_staff", "changed_by_user")
+    readonly_fields = ("created_at", "updated_at", "changed_at")

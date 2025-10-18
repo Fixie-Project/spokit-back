@@ -206,24 +206,6 @@ files = [
 django = ">=4.2"
 
 [[package]]
-name = "django-js-asset"
-version = "3.1.2"
-description = "script tag with additional attributes for django.forms.Media"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "django_js_asset-3.1.2-py3-none-any.whl", hash = "sha256:b5ffe376aebbd73b7af886d675ac9f43ca63b39540190fa8409c9f8e79145f68"},
-    {file = "django_js_asset-3.1.2.tar.gz", hash = "sha256:1fc7584199ed1941ed7c8e7b87ca5524bb0f2ba941561d2a104e88ee9f07bedd"},
-]
-
-[package.dependencies]
-django = ">=4.2"
-
-[package.extras]
-tests = ["coverage"]
-
-[[package]]
 name = "django-taggit"
 version = "6.1.0"
 description = "django-taggit is a reusable Django application for simple tagging."
@@ -1241,4 +1223,4 @@ brotli = ["brotli"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "d0b6b102d9c9cbcd5ec9754a58829861f2c37691fe4b316c27e6462f56f08595"
+content-hash = "e610e6d0fc41eac2af041d79f31b42ddfe7fd8bf074dc24937f466e0a5e40192"

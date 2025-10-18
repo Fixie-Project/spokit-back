@@ -1,36 +1,32 @@
-"""바이크 관련 직렬화 도구입니다."""
+"""새 스키마에 맞춘 자전거 직렬화기."""
 from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Bike, BikeSpec
+from .models import Bike, BikeBuild
 
 
-class BikeSpecSerializer(serializers.ModelSerializer):
-    """자전거 부품 정보를 직렬화합니다."""
+class BikeBuildSerializer(serializers.ModelSerializer):
+    """자전거 빌드 메타데이터를 직렬화."""
 
     class Meta:
-        model = BikeSpec
+        model = BikeBuild
         fields = [
-            "frame",
-            "fork",
-            "wheelset",
-            "crank",
-            "chainring",
-            "cog",
-            "handlebar",
-            "stem",
-            "saddle",
-            "seatpost",
-            "pedal",
-            "acc",
+            "id",
+            "base_bike",
+            "title",
+            "components",
+            "note",
+            "created_at",
+            "updated_at",
         ]
+        read_only_fields = ("id", "base_bike", "created_at", "updated_at")
 
 
 class BikeSerializer(serializers.ModelSerializer):
-    """자전거 기본 정보와 부품을 함께 제공합니다."""
+    """자전거 기본 정보와 연결된 빌드를 함께 직렬화."""
 
-    spec = BikeSpecSerializer(required=False)
+    builds = BikeBuildSerializer(many=True, read_only=True)
 
     class Meta:
         model = Bike
@@ -38,30 +34,14 @@ class BikeSerializer(serializers.ModelSerializer):
             "id",
             "owner",
             "name",
-            "is_primary",
+            "frame_name",
+            "frame_brand",
+            "frame_type",
+            "main_image",
+            "is_public",
+            "is_posted",
             "created_at",
             "updated_at",
-            "spec",
+            "builds",
         ]
-        read_only_fields = ("id", "owner", "created_at", "updated_at")
-
-    def update(self, instance: Bike, validated_data: dict):
-        spec_data = validated_data.pop("spec", None)
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
-        instance.save()
-
-        if spec_data is not None:
-            spec, _ = BikeSpec.objects.get_or_create(bike=instance)
-            for field, value in spec_data.items():
-                setattr(spec, field, value)
-            spec.save()
-
-        return instance
-
-    def create(self, validated_data: dict):
-        spec_data = validated_data.pop("spec", None)
-        bike = Bike.objects.create(**validated_data)
-        if spec_data:
-            BikeSpec.objects.create(bike=bike, **spec_data)
-        return bike
+        read_only_fields = ("id", "owner", "created_at", "updated_at", "builds")
