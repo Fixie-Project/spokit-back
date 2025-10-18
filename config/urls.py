@@ -10,7 +10,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from app.bike.api import BikeViewSet
+from app.bike.api import BikeBuildViewSet, BikeViewSet
 from app.post.api import PostViewSet
 from app.submission.api import (
     QuestionSetView,
@@ -20,6 +20,7 @@ from app.submission.api import (
 
 router = DefaultRouter()
 router.register(r"bikes", BikeViewSet, basename="bike")
+router.register(r"bike-builds", BikeBuildViewSet, basename="bike-build")
 router.register(r"submissions", SubmissionViewSet, basename="submission")
 router.register(
     r"submission-workflow",

@@ -84,6 +84,7 @@ class BikeBuild(BaseModel):
     title = models.CharField(max_length=120, blank=True)
     components = models.JSONField(default=dict)
     note = models.TextField(blank=True)
+    is_public = models.BooleanField(default=False)
 
     class Meta:
         db_table = "bike_build"
@@ -99,6 +100,8 @@ class BikeBuild(BaseModel):
     def clean(self):
         super().clean()
         self.components = self._normalize_components(self.components)
+        if len(self.components) < 3:
+            raise ValidationError({"components": "최소 3개 이상의 부품 카테고리를 입력해 주세요."})
 
     def save(self, *args, **kwargs):
         self.components = self._normalize_components(self.components)
@@ -131,12 +134,55 @@ class BikeBuild(BaseModel):
             details_spec = COMPONENT_SCHEMA[category]["details"]
             raw_details = payload.get("details")
             if isinstance(raw_details, dict) and details_spec is not None:
-                cleaned_details = {
-                    key: value
-                    for key, value in raw_details.items()
-                    if key in details_spec and isinstance(value, dict)
-                    and any(value.get(field) for field in ("brand", "model"))
-                }
+                cleaned_details: dict[str, Any] = {}
+                for key, value in raw_details.items():
+                    if key in {"front", "rear"}:
+                        if not isinstance(value, dict):
+                            continue
+                        sub_cleaned: dict[str, Any] = {}
+                        for sub_key, sub_value in value.items():
+                            if sub_key == "etc":
+                                etc_data = {
+                                    field: sub_value.get(field)
+                                    for field in ("brand", "model")
+                                    if isinstance(sub_value, dict) and sub_value.get(field)
+                                }
+                                if etc_data:
+                                    sub_cleaned["etc"] = etc_data
+                                continue
+                            if sub_key not in details_spec or not isinstance(sub_value, dict):
+                                continue
+                            brand = sub_value.get("brand")
+                            model = sub_value.get("model")
+                            if brand or model:
+                                sub_cleaned[sub_key] = {}
+                                if brand:
+                                    sub_cleaned[sub_key]["brand"] = brand
+                                if model:
+                                    sub_cleaned[sub_key]["model"] = model
+                        if sub_cleaned:
+                            cleaned_details[key] = sub_cleaned
+                        continue
+                    if key == "etc":
+                        if isinstance(value, dict):
+                            etc_data = {
+                                field: value.get(field)
+                                for field in ("brand", "model")
+                                if value.get(field)
+                            }
+                            if etc_data:
+                                cleaned_details["etc"] = etc_data
+                        continue
+                    if key not in details_spec or not isinstance(value, dict):
+                        continue
+                    brand = value.get("brand")
+                    model = value.get("model")
+                    if brand or model:
+                        cleaned_details[key] = {}
+                        if brand:
+                            cleaned_details[key]["brand"] = brand
+                        if model:
+                            cleaned_details[key]["model"] = model
                 if cleaned_details:
                     cleaned_payload["details"] = cleaned_details
             elif isinstance(raw_details, dict) and details_spec is None:
