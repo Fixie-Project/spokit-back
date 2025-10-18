@@ -1,123 +1,175 @@
-"""소개 신청과 부품 정보를 관리하는 모델입니다."""
+"""Spokit 데이터 기준에 맞춘 신청 관련 모델."""
 from __future__ import annotations
 
-from django.conf import settings
+from typing import Any
+
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from app.bike.models import Bike, BikeSpec
+from app.bike.models import Bike, BikeBuild
+from app.core.models import BaseImage, BaseModel
 
 
 class SubmissionStatus(models.TextChoices):
-    """소개 신청서가 거치는 단계를 정의합니다."""
+    """신청서 진행 상태 코드."""
 
-    SUBMITTED = "submitted", "접수됨"
-    IN_REVIEW = "in_review", "대기중"
-    IN_PROGRESS = "in_progress", "포스팅중"
-    PUBLISHED = "published", "포스팅 완료"
+    DRAFT = "draft", "초안"
+    SUBMITTED = "submitted", "접수"
+    IN_REVIEW = "in_review", "검토중"
+    APPROVED = "approved", "승인"
+    POSTING = "posting", "포스팅중"
+    PUBLISHED = "published", "게시 완료"
     REJECTED = "rejected", "반려"
+    RESUBMITTED = "resubmitted", "재신청"
 
 
-class Submission(models.Model):
-    """회원이 운영자에게 보내는 소개 신청서입니다."""
+class Submission(BaseModel):
+    """사용자가 작성한 소개 신청서."""
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        "user.User",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="submissions",
-    )
-    submitter_name = models.CharField(max_length=100)
-    submitter_email = models.EmailField()
-    sns_links = models.JSONField(default=list, blank=True)
-    message = models.TextField()
-    status = models.CharField(
-        max_length=20,
-        choices=SubmissionStatus.choices,
-        default=SubmissionStatus.SUBMITTED,
-    )
-    notes = models.TextField(blank=True)
-    rejection_reason = models.TextField(blank=True)
-    draft_data = models.JSONField(default=dict, blank=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    reviewer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="reviewed_submissions",
-    )
-    result_post = models.ForeignKey(
-        "post.Post",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="source_submissions",
     )
     bike = models.ForeignKey(
         Bike,
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="submissions",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    build = models.ForeignKey(
+        BikeBuild,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="submissions",
+    )
+    title = models.CharField(max_length=200)
+    build_snapshot = models.JSONField(default=dict)
+    story_blocks = models.JSONField(default=list)
+    status = models.CharField(max_length=20, choices=SubmissionStatus.choices, default=SubmissionStatus.DRAFT)
+    rejection_reason = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        db_table = "submission_submission"
+        verbose_name = "신청서"
+        verbose_name_plural = "신청서"
         indexes = [
             models.Index(fields=["status"], name="submission_status_idx"),
-            models.Index(fields=["submitter_email"], name="submission_email_idx"),
+            models.Index(fields=["user"], name="submission_user_idx"),
+            models.Index(fields=["created_at"], name="submission_created_idx"),
         ]
-        db_table = "post_submission"
 
-    def __str__(self) -> str:
-        return f"Submission({self.submitter_name}, {self.status})"
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return self.title
 
-    def ensure_bike(self, *, owner, name: str, nickname: str = "", description: str = "") -> Bike:
-        """신청서에 연결된 자전거가 없으면 생성하거나 갱신합니다."""
+    def clean(self):
+        super().clean()
+        if self.build and self.bike and self.build.base_bike_id != self.bike_id:
+            raise ValidationError("빌드는 선택된 자전거와 연결되어 있어야 합니다.")
+        if not isinstance(self.story_blocks, list):
+            raise ValidationError({"story_blocks": "스토리 블록은 리스트 형태여야 합니다."})
+        if not isinstance(self.build_snapshot, dict):
+            raise ValidationError({"build_snapshot": "빌드 스냅샷은 dict 형태여야 합니다."})
 
-        bike = self.bike
-        if bike is None:
-            unique_name = name
-            counter = 1
-            if owner:
-                exists = Bike.objects.filter(owner=owner, name=unique_name).exists()
-                while exists:
-                    counter += 1
-                    unique_name = f"{name} #{counter}"
-                    exists = Bike.objects.filter(owner=owner, name=unique_name).exists()
-            else:
-                exists = Bike.objects.filter(owner__isnull=True, name=unique_name).exists()
-                while exists:
-                    counter += 1
-                    unique_name = f"{name} #{counter}"
-                    exists = Bike.objects.filter(owner__isnull=True, name=unique_name).exists()
-            bike = Bike(owner=owner, name=unique_name, nickname=nickname, description=description)
-        else:
-            bike.name = name
-            bike.nickname = nickname
-            bike.description = description
-            if owner and bike.owner_id != owner.pk:
-                bike.owner = owner
-        bike.save()
-        self.bike = bike
-        self.save(update_fields=["bike"])
-        return bike
+    def save(self, *args, **kwargs):
+        self.full_clean(exclude=None)
+        super().save(*args, **kwargs)
 
-    def update_bike_spec(self, data: dict[str, str]) -> BikeSpec:
-        """자전거의 부품 정보를 주어진 데이터로 갱신합니다."""
+    def to_snapshot(self) -> dict[str, Any]:
+        """게시글과 연동할 때 사용하는 스냅샷 데이터 반환."""
 
-        if not self.bike:
-            raise ValueError("bike must be assigned before updating spec")
-        spec, _ = BikeSpec.objects.get_or_create(bike=self.bike)
-        allowed_fields = {
-            field.name
-            for field in BikeSpec._meta.get_fields()
-            if getattr(field, "concrete", False) and field.name not in {"id", "bike", "updated_at"}
+        return {
+            "id": str(self.pk),
+            "title": self.title,
+            "build_snapshot": self.build_snapshot,
+            "story_blocks": self.story_blocks,
+            "status": self.status,
         }
-        for field, value in data.items():
-            if field in allowed_fields:
-                setattr(spec, field, value or "")
-        spec.save()
-        return spec
+
+
+class SubmissionImagePurpose(models.TextChoices):
+    """신청서 이미지 용도 구분."""
+
+    STORY = "story", "스토리"
+    EXTRA = "extra", "추가"
+
+
+class SubmissionImage(BaseImage):
+    """신청서에 첨부된 이미지 메타데이터."""
+
+    submission = models.ForeignKey(
+        Submission,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    purpose = models.CharField(max_length=20, choices=SubmissionImagePurpose.choices)
+    order = models.IntegerField(null=True, blank=True)
+    caption = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        db_table = "submission_submission_image"
+        verbose_name = "신청서 이미지"
+        verbose_name_plural = "신청서 이미지"
+        ordering = ["purpose", "order", "created_at"]
+        indexes = [
+            models.Index(fields=["submission", "purpose"], name="submission_image_idx"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return f"{self.submission_id} · {self.get_purpose_display()}"
+
+
+class SubmissionStatusLog(BaseModel):
+    """신청서 상태 변경 이력을 기록하는 로그."""
+
+    is_active = None  # 로그 레코드는 수정·삭제하지 않음
+
+    submission = models.ForeignKey(
+        Submission,
+        on_delete=models.CASCADE,
+        related_name="status_logs",
+    )
+    changed_by_staff = models.ForeignKey(
+        "user.Staff",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="submission_status_logs",
+    )
+    changed_by_user = models.ForeignKey(
+        "user.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="submission_status_logs",
+    )
+    from_status = models.CharField(max_length=50, choices=SubmissionStatus.choices)
+    to_status = models.CharField(max_length=50, choices=SubmissionStatus.choices)
+    comment = models.TextField(blank=True)
+    changed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "submission_status_log"
+        verbose_name = "신청서 상태 로그"
+        verbose_name_plural = "신청서 상태 로그"
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(changed_by_staff__isnull=False, changed_by_user__isnull=True)
+                    | models.Q(changed_by_staff__isnull=True, changed_by_user__isnull=False)
+                ),
+                name="submission_log_single_actor",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if bool(self.changed_by_staff) == bool(self.changed_by_user):
+            raise ValidationError("운영진 또는 사용자 중 한 명만 상태를 변경할 수 있습니다.")
+
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return f"{self.submission_id}: {self.from_status} → {self.to_status}"

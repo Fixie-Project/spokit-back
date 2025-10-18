@@ -30,34 +30,42 @@ class PostForm(forms.ModelForm):
     class Meta:
         model = Post
         fields = [
-            "title",
+            "main_title",
+            "sub_title",
             "slug",
-            "summary",
-            "body",
-            "cover_image",
             "status",
-            "featured",
+            "frame_brand",
+            "frame_type",
+            "content_md",
+            "content_html",
+            "content_json",
             "tags",
         ]
         labels = {
-            "title": "제목",
+            "main_title": "메인 타이틀",
+            "sub_title": "서브 타이틀",
             "slug": "슬러그",
-            "summary": "요약",
-            "body": "본문",
-            "cover_image": "대표 이미지 URL",
             "status": "공개 상태",
-            "featured": "추천 노출",
+            "frame_brand": "프레임 브랜드",
+            "frame_type": "프레임 타입",
+            "content_md": "본문 (Markdown)",
+            "content_html": "본문 (HTML)",
+            "content_json": "본문 (JSON)",
             "tags": "태그",
         }
         widgets = {
-            "summary": forms.Textarea(attrs={"rows": 3}),
-            "body": forms.Textarea(attrs={"rows": 10}),
+            "content_md": forms.Textarea(attrs={"rows": 10}),
+            "content_html": forms.Textarea(attrs={"rows": 10}),
             "tags": forms.CheckboxSelectMultiple(),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["status"].choices = PostStatus.choices
+        json_field = forms.JSONField(required=True)
+        if self.instance and self.instance.pk:
+            json_field.initial = self.instance.content_json
+        self.fields["content_json"] = json_field
 
 
 class GearCalculatorForm(forms.Form):

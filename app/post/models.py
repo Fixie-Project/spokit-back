@@ -1,150 +1,217 @@
-"""게시글 앱에서 사용하는 모델 정의입니다."""
+"""Spokit 스펙에 맞춘 게시글 및 태그 모델."""
 from __future__ import annotations
 
 from typing import Any
 
-from django.conf import settings
-from django.utils import timezone
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
+
+from app.bike.models import FrameType
+from app.core.models import BaseImage, BaseModel
 
 
 class PostStatus(models.TextChoices):
-    """게시글의 진행 상태를 정의합니다."""
+    """게시글 진행 상태 코드."""
 
     DRAFT = "draft", "초안"
-    REVIEW = "review", "검수중"
-    PUBLISHED = "published", "게시됨"
+    REVIEW = "review", "검토중"
+    PUBLISHED = "published", "발행"
 
 
-class Tag(models.Model):
-    """브랜드·지역 등 주제를 나타내는 태그입니다."""
+class Tag(BaseModel):
+    """검색·분류에 사용하는 태그 모델."""
+
+    is_active = None  # 태그는 소프트 삭제 플래그가 필요하지 않음
 
     name = models.CharField(max_length=50, unique=True)
-    slug = models.SlugField(unique=True)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "post_tag"
         ordering = ["name"]
-        indexes = [models.Index(fields=["slug"], name="tag_slug_idx")]
+        verbose_name = "태그"
+        verbose_name_plural = "태그"
+        indexes = [
+            models.Index(fields=["name"], name="post_tag_name_idx"),
+        ]
 
-    def __str__(self) -> str:
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
         return self.name
 
 
-class Post(models.Model):
-    """운영자가 작성·관리하는 게시글입니다."""
+class Post(BaseModel):
+    """신청서 기반 혹은 운영진 작성 게시글 정보."""
 
     author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        "user.Staff",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="posts",
     )
-    title = models.CharField(max_length=200)
-    slug = models.SlugField(unique=True)
-    summary = models.TextField(blank=True)
-    body = models.TextField(help_text="마크다운 또는 HTML로 자유롭게 작성")
-    cover_image = models.URLField(blank=True)
-    spec = models.JSONField(default=dict, blank=True)
-    status = models.CharField(
-        max_length=20,
-        choices=PostStatus.choices,
-        default=PostStatus.DRAFT,
+    submission = models.OneToOneField(
+        "submission.Submission",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="post",
     )
+    bike = models.ForeignKey(
+        "bike.Bike",
+        on_delete=models.PROTECT,
+        related_name="posts",
+    )
+    build = models.ForeignKey(
+        "bike.BikeBuild",
+        on_delete=models.PROTECT,
+        related_name="posts",
+    )
+    build_snapshot = models.JSONField(default=dict)
+    rider = models.ForeignKey(
+        "user.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="featured_posts",
+    )
+    main_title = models.CharField(max_length=200)
+    sub_title = models.CharField(max_length=200)
+    content_md = models.TextField(blank=True)
+    content_html = models.TextField()
+    content_json = models.JSONField()
+    frame_brand = models.CharField(max_length=120)
+    frame_type = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=FrameType.choices,
+    )
+    slug = models.SlugField(unique=True)
     tags = models.ManyToManyField(Tag, related_name="posts", blank=True)
-    featured = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=PostStatus.choices, default=PostStatus.DRAFT)
     published_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-published_at", "-created_at"]
+        db_table = "post_post"
+        verbose_name = "게시글"
+        verbose_name_plural = "게시글"
         indexes = [
             models.Index(fields=["slug"], name="post_slug_idx"),
-            models.Index(fields=["status", "published_at"], name="post_status_idx"),
+            models.Index(fields=["frame_brand"], name="post_frame_brand_idx"),
+            models.Index(fields=["frame_type"], name="post_frame_type_idx"),
+            models.Index(fields=["status"], name="post_status_idx"),
+            models.Index(fields=["published_at"], name="post_published_at_idx"),
         ]
 
-    def __str__(self) -> str:
-        return self.title
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return self.main_title
 
     def get_absolute_url(self) -> str:
         return reverse("post:detail", args=[self.slug])
 
-    @property
-    def is_published(self) -> bool:
-        return self.status == PostStatus.PUBLISHED
-
-    def spec_items(self) -> list[tuple[str, Any]]:
-        """스펙 정보를 화면에 보여줄 순서대로 정렬합니다."""
-
-        if not isinstance(self.spec, dict):
-            return []
-        preferred_order = [
-            "frame",
-            "fork",
-            "wheelset",
-            "tire",
-            "crank",
-            "chainring",
-            "cog",
-            "handlebar",
-            "stem",
-            "saddle",
-            "seatpost",
-            "pedal",
-            "acc",
-        ]
-        items: list[tuple[str, Any]] = []
-        seen = set()
-        for key in preferred_order:
-            value = self.spec.get(key)
-            if value:
-                items.append((key, value))
-                seen.add(key)
-        for key, value in self.spec.items():
-            if key not in seen and value:
-                items.append((key, value))
-                seen.add(key)
-        return items
-
     def save(self, *args, **kwargs):
-        if self.status == PostStatus.PUBLISHED and not self.published_at:
-            self.published_at = timezone.now()
+        if self.status == PostStatus.PUBLISHED:
+            if self.published_at is None:
+                self.published_at = timezone.now()
+        else:
+            self.published_at = None
         super().save(*args, **kwargs)
 
+    def as_dict(self) -> dict[str, Any]:
+        """간단한 응답 생성을 위한 요약 딕셔너리."""
 
-class Comment(models.Model):
-    """게시글에 달린 댓글을 저장합니다."""
+        return {
+            "id": str(self.pk),
+            "main_title": self.main_title,
+            "sub_title": self.sub_title,
+            "frame_brand": self.frame_brand,
+            "frame_type": self.frame_type,
+            "status": self.status,
+            "slug": self.slug,
+        }
+
+
+class PostImagePurpose(models.TextChoices):
+    """게시글 이미지 용도 구분 코드."""
+
+    THUMBNAIL = "thumbnail", "썸네일"
+    HEADER = "header", "헤더"
+    HERO = "hero", "히어로"
+    BODY = "body", "본문"
+
+
+class PostImage(BaseImage):
+    """게시글과 매핑된 이미지 메타데이터."""
+
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    purpose = models.CharField(max_length=20, choices=PostImagePurpose.choices)
+    order = models.PositiveSmallIntegerField(default=0)
+    caption = models.CharField(max_length=255, blank=True)
+    source_image = models.ForeignKey(
+        "submission.SubmissionImage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="derived_images",
+    )
+
+    class Meta:
+        db_table = "post_post_image"
+        verbose_name = "게시글 이미지"
+        verbose_name_plural = "게시글 이미지"
+        ordering = ["purpose", "order", "created_at"]
+        indexes = [
+            models.Index(fields=["post", "purpose"], name="post_image_post_purpose_idx"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return f"{self.get_purpose_display()} · {self.post_id}"
+
+
+class Comment(BaseModel):
+    """게시글에 남겨진 사용자 댓글."""
 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments"
+        "user.User",
+        on_delete=models.CASCADE,
+        related_name="comments",
     )
     content = models.TextField()
-    is_blocked = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "post_comment"
+        verbose_name = "댓글"
+        verbose_name_plural = "댓글"
         ordering = ["created_at"]
 
-    def __str__(self) -> str:
-        return f"{self.user}: {self.content[:30]}"
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return f"{self.user}: {self.content[:20]}"
 
 
-class Like(models.Model):
-    """회원이 누른 좋아요 정보를 저장합니다."""
+class Like(BaseModel):
+    """사용자별 게시글 좋아요 기록."""
 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="likes"
+        "user.User",
+        on_delete=models.CASCADE,
+        related_name="likes",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "post_like"
+        verbose_name = "좋아요"
+        verbose_name_plural = "좋아요"
         unique_together = ("post", "user")
 
-    def __str__(self) -> str:
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
         return f"{self.user} → {self.post}"
