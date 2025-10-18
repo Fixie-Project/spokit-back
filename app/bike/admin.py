@@ -1,26 +1,27 @@
-"""바이크 관련 관리자 설정입니다."""
+"""바이크 관련 관리자 설정."""
 from django.contrib import admin
 
-from .models import Bike, BikeSpec
+from .models import Bike, BikeBuild
 
 
-class BikeSpecInline(admin.StackedInline):
-    model = BikeSpec
-    can_delete = False
+class BikeBuildInline(admin.TabularInline):
+    model = BikeBuild
     extra = 0
+    fields = ("title", "components", "note")
 
 
 @admin.register(Bike)
 class BikeAdmin(admin.ModelAdmin):
-    list_display = ("owner", "name", "is_primary", "created_at")
-    list_filter = ("is_primary", "created_at")
-    search_fields = ("name", "owner__username", "owner__email")
-    inlines = [BikeSpecInline]
-    ordering = ("owner", "-is_primary", "name")
+    list_display = ("frame_brand", "frame_name", "owner", "is_public", "is_posted", "updated_at")
+    list_filter = ("frame_brand", "frame_type", "is_public", "is_posted")
+    search_fields = ("frame_brand", "frame_name", "owner__email", "owner__nickname")
+    inlines = [BikeBuildInline]
+    ordering = ("frame_brand", "frame_name")
 
 
-@admin.register(BikeSpec)
-class BikeSpecAdmin(admin.ModelAdmin):
-    list_display = ("bike", "updated_at")
-    search_fields = ("bike__name", "bike__owner__username")
-    readonly_fields = ("updated_at",)
+@admin.register(BikeBuild)
+class BikeBuildAdmin(admin.ModelAdmin):
+    list_display = ("base_bike", "title", "updated_at")
+    search_fields = ("base_bike__frame_brand", "base_bike__frame_name", "title")
+    list_filter = ("base_bike__frame_brand",)
+    readonly_fields = ("created_at", "updated_at")

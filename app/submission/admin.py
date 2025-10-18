@@ -1,73 +1,82 @@
-"""소개 신청 관련 관리자 설정입니다."""
+"""Submission admin configuration for the new schema."""
+import json
+
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Submission, SubmissionImage
+from .models import Submission, SubmissionImage, SubmissionStatusLog
 
 
 class SubmissionImageInline(admin.TabularInline):
     model = SubmissionImage
     extra = 0
-    fields = ("image", "created_at")
+    fields = ("purpose", "order", "url", "caption", "created_at")
     readonly_fields = ("created_at",)
 
 
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
     list_display = (
-        "user",
-        "user_email",
         "title",
+        "user",
         "status",
-        "bike_display",
-        "image_count",
+        "bike",
+        "build",
         "created_at",
-        "reviewed_at",
+        "updated_at",
     )
     list_filter = ("status", "created_at")
-    search_fields = ("title", "user__username", "user__email", "bike__name")
-    readonly_fields = ("created_at", "reviewed_at", "bike_preview")
-    autocomplete_fields = ("user", "reviewer", "result_post", "bike")
-    list_select_related = ("user", "reviewer", "result_post", "bike")
+    search_fields = ("title", "user__username", "user__email", "bike__frame_name")
+    readonly_fields = ("created_at", "updated_at", "story_blocks_pretty", "build_snapshot_pretty")
+    autocomplete_fields = ("user", "bike", "build")
+    list_select_related = ("user", "bike", "build")
     inlines = (SubmissionImageInline,)
 
     fieldsets = (
-        ("신청자 정보", {"fields": ("user", "title", "sns_links", "message")} ),
-        ("진행 정보", {"fields": ("status", "notes", "rejection_reason", "reviewer", "reviewed_at", "result_post", "created_at")} ),
-        ("바이크", {"fields": ("bike", "bike_preview")} ),
+        (
+            "기본 정보",
+            {
+                "fields": (
+                    "user",
+                    "title",
+                    "bike",
+                    "build",
+                    "status",
+                    "rejection_reason",
+                )
+            },
+        ),
+        (
+            "스토리",
+            {"fields": ("build_snapshot_pretty", "story_blocks_pretty")},
+        ),
+        (
+            "시스템",
+            {"fields": ("created_at", "updated_at")},
+        ),
     )
 
-    def bike_display(self, obj: Submission) -> str:
-        if not obj.bike:
+    def story_blocks_pretty(self, obj: Submission) -> str:
+        if not obj.story_blocks:
             return "-"
-        return obj.bike.name
+        formatted = json.dumps(obj.story_blocks, ensure_ascii=False, indent=2)
+        return format_html("<pre style='white-space: pre-wrap;'>{}</pre>", formatted)
 
-    bike_display.short_description = "바이크"
+    story_blocks_pretty.short_description = "스토리 블록"
 
-    def user_email(self, obj: Submission) -> str:
-        if not obj.user:
+    def build_snapshot_pretty(self, obj: Submission) -> str:
+        if not obj.build_snapshot:
             return "-"
-        return obj.user.email or obj.user.get_username()
+        formatted = json.dumps(obj.build_snapshot, ensure_ascii=False, indent=2)
+        return format_html("<pre style='white-space: pre-wrap;'>{}</pre>", formatted)
 
-    user_email.short_description = "이메일"
+    build_snapshot_pretty.short_description = "빌드 스냅샷"
 
-    def image_count(self, obj: Submission) -> int:
-        return obj.images.count()
 
-    image_count.short_description = "이미지 수"
-
-    def bike_preview(self, obj: Submission) -> str:
-        bike = obj.bike
-        if not bike:
-            return "-"
-        spec = getattr(bike, "spec", None)
-        parts = "<br />".join(
-            f"<strong>{label}</strong>: {value}" for label, value in (spec.display_items if spec else [])
-        )
-        return format_html(
-            "<p><strong>{}</strong></p><p>{}</p>",
-            bike.name,
-            parts or "등록된 부품 정보가 없습니다.",
-        )
-
-    bike_preview.short_description = "바이크 상세"
+@admin.register(SubmissionStatusLog)
+class SubmissionStatusLogAdmin(admin.ModelAdmin):
+    list_display = ("submission", "from_status", "to_status", "changed_by_staff", "changed_by_user", "changed_at")
+    list_filter = ("to_status", "changed_at")
+    search_fields = ("submission__title", "changed_by_staff__user__nickname", "changed_by_user__nickname")
+    autocomplete_fields = ("submission", "changed_by_staff", "changed_by_user")
+    readonly_fields = ("created_at", "updated_at", "changed_at")

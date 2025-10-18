@@ -1,108 +1,195 @@
-"""사용자 인증과 프로필 관련 뷰를 정의합니다."""
-from django.contrib import messages
-from django.contrib.auth import login, logout
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.views import LoginView
-from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
-from django.urls import reverse, reverse_lazy
-from django.views import View, generic
+"""사용자 인증 및 마이페이지 관련 API 뷰."""
+from __future__ import annotations
 
-from app.submission.forms import SubmissionForm
+import re
+
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
+from rest_framework import exceptions, permissions, status, views
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+
 from app.submission.models import Submission, SubmissionStatus
+from app.submission.serializers import SubmissionSerializer
 
-from .forms import SignupForm
-
-
-class CustomLoginView(LoginView):
-    """권한에 맞는 기본 페이지로 보내는 로그인 뷰입니다."""
-
-    template_name = "user/login.html"
-
-    def get_success_url(self):
-        """next 값이 있으면 그대로, 없으면 권한에 맞는 기본 경로로 돌려줍니다."""
-        redirect_to = self.get_redirect_url()
-        if redirect_to:
-            return redirect_to
-        if self.request.user.is_staff:
-            return reverse("studio:dashboard")
-        return reverse("post:list")
+from .models import User, UserRole
+from .serializers import (
+    EmailTokenObtainPairSerializer,
+    GoogleOAuthSerializer,
+    UserProfileSerializer,
+)
 
 
-class ProfileView(LoginRequiredMixin, generic.TemplateView):
-    template_name = "user/profile.html"
+class UserSubmissionListAPIView(views.APIView):
+    """로그인 사용자의 신청 목록을 반환합니다."""
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["page_title"] = "마이페이지"
+    def get(self, request) -> Response:
         submissions = (
-            Submission.objects.filter(user=self.request.user)
-            .select_related("bike", "bike__spec")
+            Submission.objects.filter(user=request.user)
+            .select_related("bike", "build")
+            .prefetch_related("images")
             .order_by("-created_at")
         )
-        context["submissions"] = submissions
-        context["submission_status"] = SubmissionStatus
-        return context
+        serializer = SubmissionSerializer(submissions, many=True, context={"request": request})
+        return Response({"count": submissions.count(), "results": serializer.data})
 
 
-class SignupView(generic.FormView):
-    template_name = "user/signup.html"
-    form_class = SignupForm
-    success_url = reverse_lazy("post:list")
+class UserSubmissionDetailAPIView(views.APIView):
+    """특정 신청을 조회하거나 수정합니다."""
+    permission_classes = [permissions.IsAuthenticated]
 
-    def form_valid(self, form: SignupForm):
-        user = form.save()
-        login(self.request, user)
-        return super().form_valid(form)
+    def get_object(self, request, pk: str) -> Submission:
+        return get_object_or_404(Submission, pk=pk, user=request.user)
+
+    def get(self, request, pk: str) -> Response:
+        submission = self.get_object(request, pk)
+        serializer = SubmissionSerializer(submission, context={"request": request})
+        return Response(serializer.data)
+
+    def patch(self, request, pk: str) -> Response:
+        submission = self.get_object(request, pk)
+        serializer = SubmissionSerializer(
+            submission,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
-class LogoutRedirectView(LoginRequiredMixin, View):
-    """로그아웃하고 홈으로 돌려보내는 뷰입니다."""
+class UserProfileSummaryAPIView(views.APIView):
+    """신청 상태별 통계 요약을 제공합니다."""
+    permission_classes = [permissions.IsAuthenticated]
 
-    def dispatch(self, request, *args, **kwargs):
-        """요청 방식을 가리지 않고 로그아웃한 뒤 홈으로 보냅니다."""
-        logout(request)
-        return redirect("post:list")
+    def get(self, request) -> Response:
+        submissions = Submission.objects.filter(user=request.user)
+        stats = {
+            "total": submissions.count(),
+            "by_status": {
+                status: submissions.filter(status=status).count()
+                for status in SubmissionStatus.values
+            },
+        }
+        return Response(stats)
 
 
-class SubmissionUpdateView(LoginRequiredMixin, UserPassesTestMixin, generic.UpdateView):
-    """회원이 본인의 소개 신청서를 다시 제출할 때 쓰는 뷰입니다."""
+class UserProfileAPIView(views.APIView):
+    """사용자 프로필 조회 및 수정."""
 
-    model = Submission
-    form_class = SubmissionForm
-    template_name = "user/submission_edit.html"
-    success_url = reverse_lazy("user:profile")
+    permission_classes = [permissions.IsAuthenticated]
 
-    editable_statuses = {
-        SubmissionStatus.SUBMITTED,
-        SubmissionStatus.IN_REVIEW,
-        SubmissionStatus.REJECTED,
-    }
+    @extend_schema(responses=UserProfileSerializer, tags=["User"], summary="내 프로필 조회")
+    def get(self, request) -> Response:
+        serializer = UserProfileSerializer(request.user, context={"request": request})
+        return Response(serializer.data)
 
-    def get_object(self, queryset=None):
-        obj = super().get_object(queryset)
-        self._cached_submission = obj
-        return obj
+    @extend_schema(
+        request=UserProfileSerializer,
+        responses=UserProfileSerializer,
+        tags=["User"],
+        summary="내 프로필 수정",
+    )
+    def patch(self, request) -> Response:
+        serializer = UserProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
-    def test_func(self):
-        submission = getattr(self, "_cached_submission", None)
-        if submission is None:
-            submission = self.get_object()
-        return (
-            submission.user == self.request.user
-            and submission.status in self.editable_statuses
+
+class EmailTokenObtainPairAPIView(TokenObtainPairView):
+    """이메일·비밀번호 기반 JWT 발급 뷰."""
+
+    serializer_class = EmailTokenObtainPairSerializer
+
+
+class GoogleOAuthLoginAPIView(views.APIView):
+    """구글 OAuth id_token을 검증하여 JWT를 발급."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs) -> Response:
+        serializer = GoogleOAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        id_token_value = serializer.validated_data["id_token"]
+
+        try:
+            from google.oauth2 import id_token as google_id_token
+            from google.auth.transport import requests as google_requests
+            from google.auth.exceptions import GoogleAuthError
+        except ImportError as exc:  # pragma: no cover - 환경 의존
+            raise exceptions.APIException("google-auth 라이브러리가 설치되어 있지 않습니다.") from exc
+
+        client_id = settings.GOOGLE_OAUTH_CLIENT_ID
+        if not client_id:
+            raise exceptions.AuthenticationFailed("구글 OAuth 클라이언트 ID가 설정되어 있지 않습니다.")
+
+        try:
+            id_info = google_id_token.verify_oauth2_token(
+                id_token_value,
+                google_requests.Request(),
+                client_id,
+            )
+        except GoogleAuthError as exc:
+            raise exceptions.AuthenticationFailed("유효하지 않은 Google id_token 입니다.") from exc
+        except ValueError as exc:  # pragma: no cover - 검증 실패
+            raise exceptions.AuthenticationFailed("id_token 검증에 실패했습니다.") from exc
+
+        email = id_info.get("email")
+        if not email:
+            raise exceptions.AuthenticationFailed("Google 프로필에서 이메일을 확인할 수 없습니다.")
+
+        nickname = id_info.get("name") or email.split("@")[0]
+        nickname = self._generate_unique_nickname(nickname)
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": nickname,
+                "nickname": nickname,
+                "role": UserRole.USER,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+
+        refresh = RefreshToken.for_user(user)
+        refresh["nickname"] = user.nickname
+        refresh["role"] = user.role
+
+        access_token = refresh.access_token
+        access_token["nickname"] = user.nickname
+        access_token["role"] = user.role
+
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(access_token),
+                "nickname": user.nickname,
+                "email": user.email,
+                "role": user.role,
+                "is_new": created,
+            },
+            status=status.HTTP_200_OK,
         )
 
-    def form_valid(self, form: SubmissionForm):
-        form.instance.user = self.request.user
-        form.instance.status = SubmissionStatus.SUBMITTED
-        form.instance.rejection_reason = ""
-        form.instance.reviewer = None
-        form.instance.reviewed_at = None
-        submission: Submission = form.save(commit=True)
-        self.object = submission
-        messages.success(self.request, "소개 신청서를 수정했습니다. 운영자가 다시 확인할 거예요.")
-        return HttpResponseRedirect(self.get_success_url())
+    def _generate_unique_nickname(self, base: str) -> str:
+        """닉네임 중복을 피하도록 고유 값을 생성."""
 
-    def get_success_url(self):
-        return reverse("user:profile")
+        base_candidate = re.sub(r"[^\w가-힣]+", "", base).strip() or "spokit"
+        candidate = base_candidate
+        counter = 1
+        while User.objects.filter(nickname=candidate).exists():
+            counter += 1
+            candidate = f"{base_candidate}{counter}"
+        return candidate

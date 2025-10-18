@@ -1,6 +1,7 @@
 """Django settings for the blog-style project."""
 from __future__ import annotations
 
+import datetime
 import os
 from pathlib import Path
 
@@ -29,8 +30,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "django_extensions",
-    "ckeditor",
-    "ckeditor_uploader",
+    "app.core",
     "app.post",
     "app.bike",
     "app.submission",
@@ -54,7 +54,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -121,44 +121,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-CKEDITOR_UPLOAD_PATH = "uploads/"
-CKEDITOR_IMAGE_BACKEND = "pillow"
-CKEDITOR_ALLOW_NONIMAGE_FILES = False
-CKEDITOR_CONFIGS = {
-    "default": {
-        "toolbar": [
-            {"name": "clipboard", "items": ["Undo", "Redo"]},
-            {"name": "basicstyles", "items": ["Bold", "Italic", "Underline", "RemoveFormat"]},
-            {"name": "paragraph", "items": [
-                "NumberedList", "BulletedList", "-", "Outdent", "Indent", "-",
-                "JustifyLeft", "JustifyCenter", "JustifyRight", "JustifyBlock"
-            ]},
-            {"name": "insert", "items": ["Image", "Table", "HorizontalRule", "SpecialChar"]},
-            {"name": "links", "items": ["Link", "Unlink"]},
-            {"name": "styles", "items": ["Format", "Font", "FontSize"]},
-            {"name": "colors", "items": ["TextColor", "BGColor"]},
-            {"name": "tools", "items": ["Maximize", "Source"]},
-        ],
-        "height": 400,
-        "width": "100%",
-        "extraPlugins": (
-            "uploadimage,image2,widget,lineutils,clipboard," \
-            "pastefromword,font,justify,colorbutton,colordialog"
-        ),
-
-        "removePlugins": "image",           # 기본 이미지 플러그인 제거(이미지2 사용)
-        "filebrowserUploadUrl": "/ckeditor/upload/",
-        "filebrowserBrowseUrl": "/ckeditor/browse/",
-        "imageUploadUrl": "/ckeditor/upload/",
-        "allowedContent": True,             # 사용자가 직접 스타일 조절 가능
-        "image2_alignClasses": ["img-left", "img-center", "img-right"],
-        "image2_disableResizer": False,     # 우측 하단에서 드래그로 크기 조절
-        "autoGrow_onStartup": True,
-        "autoGrow_minHeight": 300,
-        "removeDialogTabs": "link:advanced;image:advanced",
-    }
-}
-
 
 # Default primary key ------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -169,8 +131,8 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -186,6 +148,27 @@ SPECTACULAR_SETTINGS = {
 LOGIN_URL = "user:login"
 LOGIN_REDIRECT_URL = "user:profile"
 LOGOUT_REDIRECT_URL = "post:list"
+AUTH_USER_MODEL = "user.User"
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+SIMPLE_JWT = {
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "SIGNING_KEY": os.getenv("DJANGO_SECRET_KEY", SECRET_KEY),
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTES", 60))),
+    "REFRESH_TOKEN_LIFETIME": datetime.timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", 14))),
+}
 
 # Logging ------------------------------------------------------------------
 LOGGING = {
@@ -201,3 +184,8 @@ LOGGING = {
         "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
     },
 }
+
+
+# Submission form configuration -------------------------------------------
+SUBMISSION_STORY_TEMPLATE_URL = os.getenv("SUBMISSION_STORY_TEMPLATE_URL", "")
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")

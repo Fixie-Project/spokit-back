@@ -1,28 +1,43 @@
-"""소개 신청 API 직렬화 도구입니다."""
+"""v2 스키마에 맞춘 신청서 직렬화기."""
 from __future__ import annotations
 
 from rest_framework import serializers
 
-from app.bike.models import Bike
-from app.bike.serializers import BikeSerializer
+from app.bike.serializers import BikeSerializer, BikeBuildSerializer
 
 from .models import Submission, SubmissionImage
 
 
 class SubmissionImageSerializer(serializers.ModelSerializer):
-    """소개 신청에 첨부된 이미지를 직렬화합니다."""
+    """신청서 이미지와 기본 메타데이터를 직렬화."""
 
     class Meta:
         model = SubmissionImage
-        fields = ["id", "image"]
-        read_only_fields = fields
+        fields = [
+            "id",
+            "url",
+            "purpose",
+            "order",
+            "caption",
+            "created_at",
+        ]
+        read_only_fields = ("id", "created_at")
+
+
+class StoryBlockSerializer(serializers.Serializer):
+    question_id = serializers.CharField()
+    question_text = serializers.CharField(required=False, allow_blank=True)
+    answer = serializers.CharField()
+    images = serializers.ListField(child=serializers.URLField(), required=False)
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
-    """소개 신청과 관련된 정보를 직렬화합니다."""
+    """새 구조에 맞춘 신청서 직렬화기."""
 
-    bike = BikeSerializer(required=False)
-    sns_links = serializers.ListField(child=serializers.CharField(), required=False)
+    bike = BikeSerializer(read_only=True)
+    build = BikeBuildSerializer(read_only=True)
+    story_blocks = serializers.ListField(child=StoryBlockSerializer(), allow_empty=False)
+    build_snapshot = serializers.DictField(allow_empty=True)
     images = SubmissionImageSerializer(many=True, read_only=True)
 
     class Meta:
@@ -30,66 +45,62 @@ class SubmissionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
-            "title",
-            "sns_links",
-            "message",
-            "status",
-            "notes",
-            "rejection_reason",
-            "draft_data",
-            "reviewed_at",
-            "reviewer",
-            "result_post",
-            "created_at",
             "bike",
+            "build",
+            "title",
+            "build_snapshot",
+            "story_blocks",
+            "status",
+            "rejection_reason",
+            "created_at",
+            "updated_at",
             "images",
         ]
         read_only_fields = (
             "id",
-            "status",
-            "notes",
-            "rejection_reason",
-            "draft_data",
-            "reviewed_at",
-            "reviewer",
-            "result_post",
-            "created_at",
             "user",
+            "status",
+            "rejection_reason",
+            "created_at",
+            "updated_at",
             "images",
         )
 
-    def create(self, validated_data: dict):
-        bike_data = validated_data.pop("bike", None)
-        submission = Submission.objects.create(**validated_data)
-        if bike_data:
-            bike_data.setdefault("name", submission.title or f"Submission {submission.pk}")
-            bike_serializer = BikeSerializer(data=bike_data)
-            bike_serializer.is_valid(raise_exception=True)
-            bike = bike_serializer.save(owner=submission.user)
-            submission.bike = bike
-            submission.save(update_fields=["bike"])
-        else:
-            submission.ensure_bike(owner=submission.user, name=submission.title)
-        return submission
+    def validate_story_blocks(self, value):
+        if not isinstance(value, list) or not value:
+            raise serializers.ValidationError("스토리 블록은 최소 1개 이상이어야 합니다.")
+        for idx, item in enumerate(value, start=1):
+            if not isinstance(item, dict):
+                raise serializers.ValidationError(f"{idx}번째 스토리 블록이 올바른 형식이 아닙니다.")
+            if not item.get("question_id"):
+                raise serializers.ValidationError(f"{idx}번째 블록에 question_id가 필요합니다.")
+            if not item.get("answer"):
+                raise serializers.ValidationError(f"{idx}번째 블록에 answer가 필요합니다.")
+        return value
 
-    def update(self, instance: Submission, validated_data: dict):
-        bike_data = validated_data.pop("bike", None)
+    def validate_build_snapshot(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("빌드 스냅샷은 딕셔너리 형식이어야 합니다.")
+        return value
+
+    def create(self, validated_data):
+        user = validated_data.pop("user", None)
+        return Submission.objects.create(user=user, **validated_data)
+
+    def update(self, instance: Submission, validated_data):
         for field, value in validated_data.items():
             setattr(instance, field, value)
         instance.save()
-
-        if bike_data is not None:
-            bike_data.setdefault("name", instance.title or f"Submission {instance.pk}")
-            if instance.bike:
-                bike_serializer = BikeSerializer(instance=instance.bike, data=bike_data, partial=True)
-                bike_serializer.is_valid(raise_exception=True)
-                bike_serializer.save()
-            else:
-                bike_serializer = BikeSerializer(data=bike_data)
-                bike_serializer.is_valid(raise_exception=True)
-                bike = bike_serializer.save(owner=instance.user)
-                instance.bike = bike
-                instance.save(update_fields=["bike"])
-        else:
-            instance.ensure_bike(owner=instance.user, name=instance.title)
         return instance
+
+
+class SubmissionCommentSerializer(serializers.Serializer):
+    """상태 전이 시 코멘트를 전달하기 위한 기본 직렬화기."""
+
+    comment = serializers.CharField(required=False, allow_blank=True)
+
+
+class SubmissionRejectSerializer(serializers.Serializer):
+    """반려 사유를 명시하는 직렬화기."""
+
+    reason = serializers.CharField(required=True, allow_blank=False)
