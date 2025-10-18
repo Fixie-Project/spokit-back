@@ -5,6 +5,7 @@ import re
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, permissions, status, views
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -82,10 +83,17 @@ class UserProfileAPIView(views.APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(responses=UserProfileSerializer, tags=["User"], summary="내 프로필 조회")
     def get(self, request) -> Response:
         serializer = UserProfileSerializer(request.user, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        request=UserProfileSerializer,
+        responses=UserProfileSerializer,
+        tags=["User"],
+        summary="내 프로필 수정",
+    )
     def patch(self, request) -> Response:
         serializer = UserProfileSerializer(
             request.user,

@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import views
 from rest_framework.response import Response
 
+from drf_spectacular.utils import extend_schema
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.serializers import SubmissionSerializer
 from app.user.models import Staff
@@ -73,6 +74,12 @@ class StaffDetailAPIView(views.APIView):
         serializer = StaffSerializer(staff, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        request=StaffSerializer,
+        responses=StaffSerializer,
+        tags=["Studio"],
+        summary="운영진 정보 수정",
+    )
     def patch(self, request, pk: str) -> Response:
         staff = self.get_object(pk)
         serializer = StaffSerializer(

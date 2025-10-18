@@ -92,3 +92,15 @@ class SubmissionSerializer(serializers.ModelSerializer):
             setattr(instance, field, value)
         instance.save()
         return instance
+
+
+class SubmissionCommentSerializer(serializers.Serializer):
+    """상태 전이 시 코멘트를 전달하기 위한 기본 직렬화기."""
+
+    comment = serializers.CharField(required=False, allow_blank=True)
+
+
+class SubmissionRejectSerializer(serializers.Serializer):
+    """반려 사유를 명시하는 직렬화기."""
+
+    reason = serializers.CharField(required=True, allow_blank=False)

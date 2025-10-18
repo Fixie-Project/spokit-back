@@ -11,7 +11,11 @@ from app.user.permissions import IsEditorOrAdmin, IsStaffUser
 
 from .models import Submission, SubmissionStatus
 from .questions import DEFAULT_QUESTION_VERSION, load_question_set
-from .serializers import SubmissionSerializer
+from .serializers import (
+    SubmissionCommentSerializer,
+    SubmissionRejectSerializer,
+    SubmissionSerializer,
+)
 from .services import change_submission_status
 
 
@@ -133,6 +137,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
+    @extend_schema(request=None, responses=SubmissionSerializer)
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def submit(self, request, pk=None):
         submission = self.get_object()
@@ -146,14 +151,20 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        request=SubmissionCommentSerializer,
+        responses=SubmissionSerializer,
+    )
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def resubmit(self, request, pk=None):
         submission = self.get_object()
+        payload = SubmissionCommentSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
         change_submission_status(
             submission,
             to_status=SubmissionStatus.RESUBMITTED,
             actor=request.user,
-            comment=request.data.get("comment", ""),
+            comment=payload.validated_data.get("comment", ""),
         )
         return Response(
             SubmissionSerializer(submission, context={"request": request}).data,
@@ -176,6 +187,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
             context["request"] = request
         return context
 
+    @extend_schema(request=None, responses=SubmissionSerializer)
     @action(detail=True, methods=["post"], permission_classes=[IsStaffUser])
     def review(self, request, pk=None):
         submission = self.get_object()
@@ -187,6 +199,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(submission)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=None, responses=SubmissionSerializer)
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def approve(self, request, pk=None):
         submission = self.get_object()
@@ -198,10 +211,16 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(submission)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=SubmissionRejectSerializer,
+        responses=SubmissionSerializer,
+    )
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def reject(self, request, pk=None):
         submission = self.get_object()
-        reason = request.data.get("reason", "").strip()
+        payload = SubmissionRejectSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        reason = payload.validated_data["reason"].strip()
         change_submission_status(
             submission,
             to_status=SubmissionStatus.REJECTED,
