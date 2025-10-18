@@ -11,6 +11,7 @@ urlpatterns = [
     path("auth/jwt/refresh/", TokenRefreshView.as_view(), name="jwt-refresh"),
     path("auth/google/", views.GoogleOAuthLoginAPIView.as_view(), name="oauth-google"),
     path("me/submissions/", views.UserSubmissionListAPIView.as_view(), name="submissions"),
+    path("me/submissios/", views.UserSubmissionListAPIView.as_view(), name="submissions-legacy"),
     path("me/submissions/<uuid:pk>/", views.UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
     path("me/profile/", views.UserProfileAPIView.as_view(), name="profile"),
     path("me/profile/stats/", views.UserProfileSummaryAPIView.as_view(), name="profile-stats"),

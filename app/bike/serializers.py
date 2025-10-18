@@ -6,6 +6,15 @@ from rest_framework import serializers
 from .models import Bike, BikeBuild
 
 
+class BikePublicListSerializer(serializers.ModelSerializer):
+    """공개 목록에서 사용하는 자전거 요약."""
+
+    class Meta:
+        model = Bike
+        fields = ["id", "name", "frame_name", "frame_brand", "frame_type", "created_at", "updated_at"]
+        read_only_fields = fields
+
+
 class BikeSummarySerializer(serializers.ModelSerializer):
     """자전거 요약 정보를 제공."""
 

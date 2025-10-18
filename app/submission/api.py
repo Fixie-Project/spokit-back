@@ -137,7 +137,13 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
-    @extend_schema(request=None, responses=SubmissionSerializer)
+    @extend_schema(
+        tags=["Submissions"],
+        summary="신청서 제출",
+        description="초안 상태의 신청서를 접수 상태로 전환합니다.",
+        request=None,
+        responses=SubmissionSerializer,
+    )
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def submit(self, request, pk=None):
         submission = self.get_object()
@@ -152,6 +158,9 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         )
 
     @extend_schema(
+        tags=["Submissions"],
+        summary="재신청",
+        description="반려된 신청서를 수정 후 재신청합니다.",
         request=SubmissionCommentSerializer,
         responses=SubmissionSerializer,
     )
@@ -187,7 +196,13 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
             context["request"] = request
         return context
 
-    @extend_schema(request=None, responses=SubmissionSerializer)
+    @extend_schema(
+        tags=["Submission Moderation"],
+        summary="검토 상태로 전환",
+        description="운영진이 신청서를 검토중 상태로 전환합니다.",
+        request=None,
+        responses=SubmissionSerializer,
+    )
     @action(detail=True, methods=["post"], permission_classes=[IsStaffUser])
     def review(self, request, pk=None):
         submission = self.get_object()
@@ -199,7 +214,13 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(submission)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @extend_schema(request=None, responses=SubmissionSerializer)
+    @extend_schema(
+        tags=["Submission Moderation"],
+        summary="신청서 승인",
+        description="에디터/관리자가 신청서를 승인 상태로 전환합니다.",
+        request=None,
+        responses=SubmissionSerializer,
+    )
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def approve(self, request, pk=None):
         submission = self.get_object()
@@ -212,6 +233,9 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
+        tags=["Submission Moderation"],
+        summary="신청서 반려",
+        description="운영진이 신청서를 반려하고 사유를 기록합니다.",
         request=SubmissionRejectSerializer,
         responses=SubmissionSerializer,
     )
