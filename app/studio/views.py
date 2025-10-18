@@ -2,24 +2,20 @@
 from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, views
+from rest_framework import views
 from rest_framework.response import Response
 
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.serializers import SubmissionSerializer
-
-
-class StaffRequired(permissions.BasePermission):
-    """스태프 여부를 검사하는 커스텀 권한 클래스."""
-
-    def has_permission(self, request, view) -> bool:
-        return request.user.is_authenticated and request.user.is_staff
+from app.user.models import Staff
+from app.user.permissions import IsAdminRole, IsStaffUser
+from app.user.serializers import StaffSerializer
 
 
 class StudioDashboardAPIView(views.APIView):
     """대시보드용 신청 현황 요약을 반환합니다."""
 
-    permission_classes = [StaffRequired]
+    permission_classes = [IsStaffUser]
 
     def get(self, request) -> Response:
         pending = Submission.objects.filter(
@@ -38,7 +34,7 @@ class StudioDashboardAPIView(views.APIView):
 class StudioSubmissionDetailAPIView(views.APIView):
     """특정 신청 세부 정보를 조회·수정합니다."""
 
-    permission_classes = [StaffRequired]
+    permission_classes = [IsStaffUser]
 
     def get_object(self, pk: str) -> Submission:
         return get_object_or_404(
@@ -55,6 +51,32 @@ class StudioSubmissionDetailAPIView(views.APIView):
         submission = self.get_object(pk)
         serializer = SubmissionSerializer(
             submission,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class StaffDetailAPIView(views.APIView):
+    """운영진 계정 정보를 조회/수정합니다."""
+
+    permission_classes = [IsAdminRole]
+
+    def get_object(self, pk: str) -> Staff:
+        return get_object_or_404(Staff.objects.select_related("user"), pk=pk)
+
+    def get(self, request, pk: str) -> Response:
+        staff = self.get_object(pk)
+        serializer = StaffSerializer(staff, context={"request": request})
+        return Response(serializer.data)
+
+    def patch(self, request, pk: str) -> Response:
+        staff = self.get_object(pk)
+        serializer = StaffSerializer(
+            staff,
             data=request.data,
             partial=True,
             context={"request": request},

@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample
-from rest_framework import permissions, serializers, viewsets
+from rest_framework import permissions, serializers, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Submission
+from app.user.permissions import IsEditorOrAdmin, IsStaffUser
+
+from .models import Submission, SubmissionStatus
 from .questions import DEFAULT_QUESTION_VERSION, load_question_set
 from .serializers import SubmissionSerializer
+from .services import change_submission_status
 
 
 class QuestionSetResponseSerializer(serializers.Serializer):
@@ -128,6 +132,84 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def submit(self, request, pk=None):
+        submission = self.get_object()
+        change_submission_status(
+            submission,
+            to_status=SubmissionStatus.SUBMITTED,
+            actor=request.user,
+        )
+        return Response(
+            SubmissionSerializer(submission, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def resubmit(self, request, pk=None):
+        submission = self.get_object()
+        change_submission_status(
+            submission,
+            to_status=SubmissionStatus.RESUBMITTED,
+            actor=request.user,
+            comment=request.data.get("comment", ""),
+        )
+        return Response(
+            SubmissionSerializer(submission, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class SubmissionModerationViewSet(viewsets.GenericViewSet):
+    """운영진 전용 신청서 상태 전이 API."""
+
+    queryset = Submission.objects.select_related("user", "bike", "build")
+    serializer_class = SubmissionSerializer
+    permission_classes = [IsStaffUser]
+    http_method_names = ["post", "head", "options"]
+
+    def get_serializer_context(self):  # 사용자 serializer와 동일한 context 제공
+        context = super().get_serializer_context()
+        request = getattr(self, "request", None)
+        if request:
+            context["request"] = request
+        return context
+
+    @action(detail=True, methods=["post"], permission_classes=[IsStaffUser])
+    def review(self, request, pk=None):
+        submission = self.get_object()
+        change_submission_status(
+            submission,
+            to_status=SubmissionStatus.IN_REVIEW,
+            actor=request.user,
+        )
+        serializer = self.get_serializer(submission)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
+    def approve(self, request, pk=None):
+        submission = self.get_object()
+        change_submission_status(
+            submission,
+            to_status=SubmissionStatus.APPROVED,
+            actor=request.user,
+        )
+        serializer = self.get_serializer(submission)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
+    def reject(self, request, pk=None):
+        submission = self.get_object()
+        reason = request.data.get("reason", "").strip()
+        change_submission_status(
+            submission,
+            to_status=SubmissionStatus.REJECTED,
+            actor=request.user,
+            comment=reason,
+        )
+        serializer = self.get_serializer(submission)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class QuestionSetView(APIView):

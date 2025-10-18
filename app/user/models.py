@@ -127,3 +127,28 @@ class Staff(BaseModel):
 
     def __str__(self) -> str:  # pragma: no cover - 간단한 표시용 메서드
         return f"{self.get_role_display()} · {self.user}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._sync_user_role()
+
+    def delete(self, *args, **kwargs):
+        user = self.user
+        super().delete(*args, **kwargs)
+        self._reset_user_role(user)
+
+    def _sync_user_role(self) -> None:
+        user = self.user
+        target_role = self.role
+        if user.role != target_role:
+            user.role = target_role
+        if not user.is_staff:
+            user.is_staff = True
+        user.save(update_fields=["role", "is_staff", "updated_at"])
+
+    def _reset_user_role(self, user: User) -> None:
+        if user.is_superuser:
+            return
+        user.role = UserRole.USER
+        user.is_staff = False
+        user.save(update_fields=["role", "is_staff", "updated_at"])

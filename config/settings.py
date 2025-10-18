@@ -1,6 +1,7 @@
 """Django settings for the blog-style project."""
 from __future__ import annotations
 
+import datetime
 import os
 from pathlib import Path
 
@@ -130,8 +131,8 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -156,6 +157,19 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+SIMPLE_JWT = {
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "SIGNING_KEY": os.getenv("DJANGO_SECRET_KEY", SECRET_KEY),
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTES", 60))),
+    "REFRESH_TOKEN_LIFETIME": datetime.timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", 14))),
+}
+
 # Logging ------------------------------------------------------------------
 LOGGING = {
     "version": 1,
@@ -174,3 +188,4 @@ LOGGING = {
 
 # Submission form configuration -------------------------------------------
 SUBMISSION_STORY_TEMPLATE_URL = os.getenv("SUBMISSION_STORY_TEMPLATE_URL", "")
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")

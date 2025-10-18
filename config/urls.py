@@ -12,11 +12,20 @@ from drf_spectacular.views import (
 
 from app.bike.api import BikeViewSet
 from app.post.api import PostViewSet
-from app.submission.api import QuestionSetView, SubmissionViewSet
+from app.submission.api import (
+    QuestionSetView,
+    SubmissionModerationViewSet,
+    SubmissionViewSet,
+)
 
 router = DefaultRouter()
 router.register(r"bikes", BikeViewSet, basename="bike")
 router.register(r"submissions", SubmissionViewSet, basename="submission")
+router.register(
+    r"submission-workflow",
+    SubmissionModerationViewSet,
+    basename="submission-workflow",
+)
 router.register(r"posts", PostViewSet, basename="post")
 
 urlpatterns = [

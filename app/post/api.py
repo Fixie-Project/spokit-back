@@ -5,6 +5,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, viewsets
 
 from app.submission.models import Submission, SubmissionStatus
+from app.submission.services import change_submission_status
+from app.user.permissions import IsEditorOrAdmin
 
 from .models import Post, PostStatus
 from .serializers import PostSerializer, PostWriteSerializer
@@ -47,7 +49,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in {"create", "update", "partial_update", "destroy"}:
-            return [permissions.IsAdminUser()]
+            return [permissions.IsAuthenticated(), IsEditorOrAdmin()]
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -66,17 +68,29 @@ class PostViewSet(viewsets.ModelViewSet):
         post = serializer.save(author=staff)
         submission = post.submission
         if submission and submission.status not in {SubmissionStatus.PUBLISHED, SubmissionStatus.POSTING}:
-            submission.status = SubmissionStatus.POSTING
-            submission.save(update_fields=["status", "updated_at"])
+            change_submission_status(
+                submission,
+                to_status=SubmissionStatus.POSTING,
+                actor=self.request.user,
+            )
 
     def perform_update(self, serializer):
         post = serializer.save()
         submission = post.submission
         if submission and submission.status == SubmissionStatus.POSTING and post.status == PostStatus.PUBLISHED:
-            submission.status = SubmissionStatus.PUBLISHED
-            submission.save(update_fields=["status", "updated_at"])
+            change_submission_status(
+                submission,
+                to_status=SubmissionStatus.PUBLISHED,
+                actor=self.request.user,
+            )
 
     def perform_destroy(self, instance):
         if instance.submission_id:
-            Submission.objects.filter(pk=instance.submission_id).update(status=SubmissionStatus.APPROVED)
+            submission = Submission.objects.filter(pk=instance.submission_id).first()
+            if submission and submission.status != SubmissionStatus.APPROVED:
+                change_submission_status(
+                    submission,
+                    to_status=SubmissionStatus.APPROVED,
+                    actor=self.request.user,
+                )
         super().perform_destroy(instance)

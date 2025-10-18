@@ -1,12 +1,24 @@
-"""사용자 마이페이지 관련 API 뷰입니다."""
+"""사용자 인증 및 마이페이지 관련 API 뷰."""
 from __future__ import annotations
 
+import re
+
+from django.conf import settings
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, views
+from rest_framework import exceptions, permissions, status, views
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.serializers import SubmissionSerializer
+
+from .models import User, UserRole
+from .serializers import (
+    EmailTokenObtainPairSerializer,
+    GoogleOAuthSerializer,
+    UserProfileSerializer,
+)
 
 
 class UserSubmissionListAPIView(views.APIView):
@@ -63,3 +75,113 @@ class UserProfileSummaryAPIView(views.APIView):
             },
         }
         return Response(stats)
+
+
+class UserProfileAPIView(views.APIView):
+    """사용자 프로필 조회 및 수정."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request) -> Response:
+        serializer = UserProfileSerializer(request.user, context={"request": request})
+        return Response(serializer.data)
+
+    def patch(self, request) -> Response:
+        serializer = UserProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class EmailTokenObtainPairAPIView(TokenObtainPairView):
+    """이메일·비밀번호 기반 JWT 발급 뷰."""
+
+    serializer_class = EmailTokenObtainPairSerializer
+
+
+class GoogleOAuthLoginAPIView(views.APIView):
+    """구글 OAuth id_token을 검증하여 JWT를 발급."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs) -> Response:
+        serializer = GoogleOAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        id_token_value = serializer.validated_data["id_token"]
+
+        try:
+            from google.oauth2 import id_token as google_id_token
+            from google.auth.transport import requests as google_requests
+            from google.auth.exceptions import GoogleAuthError
+        except ImportError as exc:  # pragma: no cover - 환경 의존
+            raise exceptions.APIException("google-auth 라이브러리가 설치되어 있지 않습니다.") from exc
+
+        client_id = settings.GOOGLE_OAUTH_CLIENT_ID
+        if not client_id:
+            raise exceptions.AuthenticationFailed("구글 OAuth 클라이언트 ID가 설정되어 있지 않습니다.")
+
+        try:
+            id_info = google_id_token.verify_oauth2_token(
+                id_token_value,
+                google_requests.Request(),
+                client_id,
+            )
+        except GoogleAuthError as exc:
+            raise exceptions.AuthenticationFailed("유효하지 않은 Google id_token 입니다.") from exc
+        except ValueError as exc:  # pragma: no cover - 검증 실패
+            raise exceptions.AuthenticationFailed("id_token 검증에 실패했습니다.") from exc
+
+        email = id_info.get("email")
+        if not email:
+            raise exceptions.AuthenticationFailed("Google 프로필에서 이메일을 확인할 수 없습니다.")
+
+        nickname = id_info.get("name") or email.split("@")[0]
+        nickname = self._generate_unique_nickname(nickname)
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": nickname,
+                "nickname": nickname,
+                "role": UserRole.USER,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+
+        refresh = RefreshToken.for_user(user)
+        refresh["nickname"] = user.nickname
+        refresh["role"] = user.role
+
+        access_token = refresh.access_token
+        access_token["nickname"] = user.nickname
+        access_token["role"] = user.role
+
+        return Response(
+            {
+                "refresh": str(refresh),
+                "access": str(access_token),
+                "nickname": user.nickname,
+                "email": user.email,
+                "role": user.role,
+                "is_new": created,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def _generate_unique_nickname(self, base: str) -> str:
+        """닉네임 중복을 피하도록 고유 값을 생성."""
+
+        base_candidate = re.sub(r"[^\w가-힣]+", "", base).strip() or "spokit"
+        candidate = base_candidate
+        counter = 1
+        while User.objects.filter(nickname=candidate).exists():
+            counter += 1
+            candidate = f"{base_candidate}{counter}"
+        return candidate
