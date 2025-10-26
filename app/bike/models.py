@@ -31,12 +31,6 @@ class Bike(BaseModel):
     )
     name = models.CharField(max_length=120, blank=True)
     frame_name = models.CharField(max_length=120)
-    frame_brand = models.CharField(max_length=120)
-    frame_type = models.CharField(
-        max_length=50,
-        choices=FrameType.choices,
-        blank=True,
-    )
     main_image = models.ForeignKey(
         BaseImage,
         null=True,
@@ -52,14 +46,12 @@ class Bike(BaseModel):
         verbose_name = "자전거"
         verbose_name_plural = "자전거"
         indexes = [
-            models.Index(fields=["frame_brand"], name="bike_frame_brand_idx"),
-            models.Index(fields=["frame_type"], name="bike_frame_type_idx"),
             models.Index(fields=["is_public"], name="bike_public_idx"),
             models.Index(fields=["is_posted"], name="bike_posted_idx"),
         ]
 
     def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
-        return f"{self.frame_brand} {self.frame_name}" if self.frame_name else str(self.pk)
+        return self.frame_name or str(self.pk)
 
 
 COMPONENT_SCHEMA: Dict[str, Dict[str, Any]] = {
@@ -73,6 +65,21 @@ COMPONENT_SCHEMA: Dict[str, Dict[str, Any]] = {
 }
 
 
+def _extract_model(payload: Any) -> str | None:
+    """입력 payload에서 모델명만 안전하게 추출."""
+
+    if isinstance(payload, str):
+        value = payload.strip()
+        return value or None
+    if isinstance(payload, dict):
+        candidate = payload.get("model")
+        if isinstance(candidate, str):
+            value = candidate.strip()
+            if value:
+                return value
+    return None
+
+
 class BikeBuild(BaseModel):
     """프레임별 빌드 구성을 나타내는 모델."""
 
@@ -84,7 +91,7 @@ class BikeBuild(BaseModel):
     title = models.CharField(max_length=120, blank=True)
     components = models.JSONField(default=dict)
     note = models.TextField(blank=True)
-    is_public = models.BooleanField(default=False)
+    is_public = models.BooleanField(default=True)
 
     class Meta:
         db_table = "bike_build"
@@ -124,10 +131,7 @@ class BikeBuild(BaseModel):
                 continue
 
             cleaned_payload: dict[str, Any] = {}
-            brand = payload.get("brand")
-            model = payload.get("model")
-            if brand:
-                cleaned_payload["brand"] = brand
+            model = _extract_model(payload)
             if model:
                 cleaned_payload["model"] = model
 
@@ -142,55 +146,41 @@ class BikeBuild(BaseModel):
                         sub_cleaned: dict[str, Any] = {}
                         for sub_key, sub_value in value.items():
                             if sub_key == "etc":
-                                etc_data = {
-                                    field: sub_value.get(field)
-                                    for field in ("brand", "model")
-                                    if isinstance(sub_value, dict) and sub_value.get(field)
-                                }
-                                if etc_data:
-                                    sub_cleaned["etc"] = etc_data
+                                model_name = _extract_model(sub_value)
+                                if model_name:
+                                    sub_cleaned["etc"] = {"model": model_name}
                                 continue
-                            if sub_key not in details_spec or not isinstance(sub_value, dict):
+                            if sub_key not in details_spec:
                                 continue
-                            brand = sub_value.get("brand")
-                            model = sub_value.get("model")
-                            if brand or model:
-                                sub_cleaned[sub_key] = {}
-                                if brand:
-                                    sub_cleaned[sub_key]["brand"] = brand
-                                if model:
-                                    sub_cleaned[sub_key]["model"] = model
+                            model_name = _extract_model(sub_value)
+                            if model_name:
+                                sub_cleaned[sub_key] = {"model": model_name}
                         if sub_cleaned:
                             cleaned_details[key] = sub_cleaned
                         continue
                     if key == "etc":
-                        if isinstance(value, dict):
-                            etc_data = {
-                                field: value.get(field)
-                                for field in ("brand", "model")
-                                if value.get(field)
-                            }
-                            if etc_data:
-                                cleaned_details["etc"] = etc_data
+                        model_name = _extract_model(value)
+                        if model_name:
+                            cleaned_details["etc"] = {"model": model_name}
                         continue
-                    if key not in details_spec or not isinstance(value, dict):
+                    if key not in details_spec:
                         continue
-                    brand = value.get("brand")
-                    model = value.get("model")
-                    if brand or model:
-                        cleaned_details[key] = {}
-                        if brand:
-                            cleaned_details[key]["brand"] = brand
-                        if model:
-                            cleaned_details[key]["model"] = model
+                    model_name = _extract_model(value)
+                    if model_name:
+                        cleaned_details[key] = {"model": model_name}
                 if cleaned_details:
                     cleaned_payload["details"] = cleaned_details
             elif isinstance(raw_details, dict) and details_spec is None:
-                cleaned_details = {
-                    key: value
-                    for key, value in raw_details.items()
-                    if isinstance(value, (str, dict)) and value not in ("", None, {})
-                }
+                cleaned_details = {}
+                for key, value in raw_details.items():
+                    if key == "brand":
+                        continue
+                    if isinstance(value, dict):
+                        model_name = _extract_model(value)
+                        if model_name:
+                            cleaned_details[key] = {"model": model_name}
+                    elif isinstance(value, str) and value.strip():
+                        cleaned_details[key] = value
                 if cleaned_details:
                     cleaned_payload["details"] = cleaned_details
 

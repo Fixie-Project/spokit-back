@@ -19,8 +19,6 @@ class PostInteractionTests(TestCase):
         self.bike = Bike.objects.create(
             owner=self.user,
             frame_name="Affinity LoPro",
-            frame_brand="Affinity",
-            frame_type=FrameType.ALLOY,
             is_public=True,
             is_posted=True,
         )

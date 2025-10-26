@@ -9,10 +9,25 @@ from .models import Bike, BikeBuild
 class BikePublicListSerializer(serializers.ModelSerializer):
     """공개 목록에서 사용하는 자전거 요약."""
 
+    build_names = serializers.SerializerMethodField()
+
     class Meta:
         model = Bike
-        fields = ["id", "name", "frame_name", "frame_brand", "frame_type", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "name",
+            "frame_name",
+            "created_at",
+            "updated_at",
+            "build_names",
+        ]
         read_only_fields = fields
+
+    def get_build_names(self, obj: Bike) -> list[str]:
+        builds = getattr(obj, "_public_builds", None)
+        if builds is None:
+            builds = [build for build in obj.builds.all() if build.is_public]
+        return [build.title for build in builds]
 
 
 class BikeSummarySerializer(serializers.ModelSerializer):
@@ -20,7 +35,7 @@ class BikeSummarySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Bike
-        fields = ["id", "frame_name", "frame_brand", "frame_type"]
+        fields = ["id", "frame_name"]
         read_only_fields = fields
 
 
@@ -51,7 +66,7 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
         extra_kwargs = {
             "components": {
-                "help_text": "카테고리별 부품 정보. 예: {\"wheel\": {\"brand\": \"H Plus Son\", \"model\": \"AT-25\", \"details\": {\"hub\": {\"brand\": \"Phil Wood\", \"model\": \"Low Flange\"}}}}"
+                "help_text": "카테고리별 부품 정보. 예: {\"wheel\": {\"model\": \"AT-25\", \"details\": {\"hub\": {\"model\": \"Low Flange\"}}}}"
             }
         }
 
@@ -75,8 +90,6 @@ class BikeSerializer(serializers.ModelSerializer):
             "owner",
             "name",
             "frame_name",
-            "frame_brand",
-            "frame_type",
             "main_image",
             "is_public",
             "is_posted",
@@ -105,3 +118,29 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
+
+
+class MessageSerializer(serializers.Serializer):
+    """응답 메시지 기본 형태."""
+
+    message = serializers.CharField()
+
+
+class BikeListResponseSerializer(MessageSerializer):
+    data = BikeSerializer(many=True)
+
+
+class BikeDetailResponseSerializer(MessageSerializer):
+    data = BikeSerializer()
+
+
+class BikePublicListResponseSerializer(MessageSerializer):
+    data = BikePublicListSerializer(many=True)
+
+
+class BikeBuildListResponseSerializer(MessageSerializer):
+    data = BikeBuildSerializer(many=True)
+
+
+class BikeBuildDetailResponseSerializer(MessageSerializer):
+    data = BikeBuildDetailSerializer()

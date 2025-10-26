@@ -56,7 +56,6 @@ def _submission_examples():
                     }
                 ],
                 "build_snapshot": {
-                    "frame_brand": "Affinity",
                     "frame_name": "Midnight Run",
                 },
             },
@@ -82,7 +81,6 @@ def _submission_examples():
                     }
                 ],
                 "build_snapshot": {
-                    "frame_brand": "Affinity",
                     "frame_name": "Midnight Run",
                 },
                 "status": "submitted",
