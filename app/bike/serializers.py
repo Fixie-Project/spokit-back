@@ -6,6 +6,16 @@ from rest_framework import serializers
 from .models import Bike, BikeBuild
 
 
+COMPONENT_CATEGORIES = (
+    "frame_setup",
+    "wheel",
+    "cockpit",
+    "drivetrain",
+    "seat",
+    "brake",
+    "etc",
+)
+
 class BikePublicListSerializer(serializers.ModelSerializer):
     """공개 목록에서 사용하는 자전거 요약."""
 
@@ -66,16 +76,45 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
         extra_kwargs = {
             "components": {
-                "help_text": "카테고리별 부품 정보. 예: {\"wheel\": {\"model\": \"AT-25\", \"details\": {\"hub\": {\"model\": \"Low Flange\"}}}}"
+                "help_text": "카테고리별 부품 리스트. 예: {\"wheel\": [\"Phil Wood hub\", \"H Plus Son rim\"]}"
             }
         }
 
     def validate_components(self, value):
-        if value in (None, ""):
-            return {}
+        if value in (None, "", []):
+            raise serializers.ValidationError("components 필드를 입력해 주세요.")
         if not isinstance(value, dict):
             raise serializers.ValidationError("components 필드는 객체 형태여야 합니다.")
-        return value
+
+        cleaned: dict[str, list[str]] = {}
+        for category, items in value.items():
+            if category not in COMPONENT_CATEGORIES:
+                raise serializers.ValidationError({category: "허용되지 않은 카테고리입니다."})
+
+            if isinstance(items, str):
+                items_list = [items]
+            elif isinstance(items, list):
+                items_list = items
+            else:
+                raise serializers.ValidationError({category: "리스트 또는 문자열만 허용됩니다."})
+
+            normalized: list[str] = []
+            for item in items_list:
+                if item in (None, ""):
+                    continue
+                if not isinstance(item, str):
+                    raise serializers.ValidationError({category: "항목은 문자열이어야 합니다."})
+                text = item.strip()
+                if text:
+                    normalized.append(text)
+
+            if normalized:
+                cleaned[category] = normalized
+
+        if len(cleaned) < 3:
+            raise serializers.ValidationError("최소 3개 이상의 카테고리를 입력해 주세요.")
+
+        return cleaned
 
 
 class BikeSerializer(serializers.ModelSerializer):

@@ -80,12 +80,35 @@
 - 특정 자전거의 빌드 목록: `GET /api/bikes/<bike_uuid>/builds/`
 - 빌드 상세: `GET /api/bike-builds/<uuid>/` (공개 빌드 또는 소유자)
 - 빌드 수정: `PATCH /api/bike-builds/<uuid>/` (소유자)
+- 빌드 생성: `POST /api/bike-builds/` (소유자) — 요청 본문 핵심 필드
+  ```json
+  {
+    "base_bike": "<bike_uuid>",
+    "title": "Midnight Track Setup",
+    "components": {
+      "frame_setup": ["Engine 11 Vortex"],
+      "wheel": ["Phil Wood hub", "H Plus Son rim"],
+      "drivetrain": ["Miche Primato crank", "17T cog", "Dura-Ace lockring"],
+      "cockpit": ["Nitto B123"],
+      "seat": ["Thomson Elite"],
+      "brake": ["Tektro R540"],
+      "etc": ["Garmin mount"]
+    },
+    "note": "도심 야간 주행 세팅",
+    "is_public": true
+  }
+  ```
+  - `components`는 **카테고리 → 문자열 리스트** 구조로 통일됩니다. 허용 카테고리: `frame_setup`, `wheel`, `cockpit`, `drivetrain`, `seat`, `brake`, `etc`.
+  - 각 카테고리는 공백 제거 후 남는 문자열만 저장되며, 최소 3개 이상의 카테고리가 채워져야 합니다.
+  - 문자열 한 개만 보낼 경우 자동으로 리스트로 승격됩니다.
+  - 허용되지 않은 카테고리를 넘기면 400 오류(`{"components": {"unknown": "허용되지 않은 카테고리입니다."}}`)가 발생합니다.
 
 | Method | Path | 설명 |
 | --- | --- | --- |
 | GET | `/api/bike-builds/` | 내 빌드 목록 (visibility 필터 지원) |
 | GET | `/api/users/<uuid>/bike-builds/` | 특정 사용자의 공개 빌드 목록 |
 | GET | `/api/bike-builds/<uuid>/` | 빌드 상세 (소유자 또는 공개) |
+| POST | `/api/bike-builds/` | 빌드 생성 (소유 자전거에 한함) |
 | PATCH | `/api/bike-builds/<uuid>/` | 빌드 일부 수정 (소유자) |
 
 ---
@@ -156,4 +179,4 @@
 
 ---
 
-최근 업데이트: 2025-10-19
+최근 업데이트: 2025-10-21

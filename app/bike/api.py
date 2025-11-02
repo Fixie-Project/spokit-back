@@ -1,6 +1,7 @@
 """Bike and bike build related API views."""
 from __future__ import annotations
 
+from django.contrib.auth import get_user_model
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -120,12 +121,19 @@ class BikeDetailView(APIView):
 
 
 class BikeOwnerPublicListAPIView(APIView):
-    """특정 사용자의 공개 자전거 목록."""
+    """특정 사용자의 자전거 목록."""
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(tags=["Bikes"], summary="사용자 공개 자전거 목록", responses=BikePublicListResponseSerializer)
+    @extend_schema(tags=["Bikes"], summary="사용자 자전거 목록", responses=BikePublicListResponseSerializer)
     def get(self, request, user_id: str):
+        if not get_user_model().objects.filter(id=user_id).exists():
+            return error_response(
+                "사용자를 찾을 수 없습니다.",
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="NOT_FOUND",
+            )
+
         queryset = Bike.objects.filter(owner_id=user_id, is_public=True).prefetch_related(
             Prefetch(
                 "builds",
@@ -140,7 +148,7 @@ class BikeOwnerPublicListAPIView(APIView):
             "updated_at",
         )
         serializer = BikePublicListSerializer(queryset, many=True, context={"request": request})
-        return success_response("공개 자전거 목록을 조회했습니다.", serializer.data)
+        return success_response("특정 사용자의 자전거 목록을 조회했습니다.", serializer.data)
 
 
 class BikeBuildListCreateView(APIView):
