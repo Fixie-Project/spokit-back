@@ -1,8 +1,10 @@
 """게시글 관련 API 뷰셋입니다."""
 from __future__ import annotations
 
+from django.db.models import F
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, viewsets
+from rest_framework.response import Response
 
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.services import change_submission_status
@@ -96,3 +98,11 @@ class PostViewSet(viewsets.ModelViewSet):
                     actor=self.request.user,
                 )
         super().perform_destroy(instance)
+
+    def retrieve(self, request, *args, **kwargs):
+        post = self.get_object()
+        if post.status == PostStatus.PUBLISHED:
+            Post.objects.filter(pk=post.pk).update(view_count=F("view_count") + 1)
+            post.view_count += 1
+        serializer = self.get_serializer(post)
+        return Response(serializer.data)

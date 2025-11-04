@@ -61,3 +61,17 @@ class PostInteractionTests(TestCase):
         response = self.client.post(url)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(self.post.likes.filter(user=self.user).exists())
+
+    def test_view_count_increments_on_detail(self) -> None:
+        detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["view_count"], 1)
+        self.post.refresh_from_db(fields=["view_count"])
+        self.assertEqual(self.post.view_count, 1)
+
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["view_count"], 2)
+        self.post.refresh_from_db(fields=["view_count"])
+        self.assertEqual(self.post.view_count, 2)
