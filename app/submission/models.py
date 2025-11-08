@@ -23,6 +23,16 @@ class SubmissionStatus(models.TextChoices):
     RESUBMITTED = "resubmitted", "재신청"
 
 
+class SubmissionRejectionReason(models.TextChoices):
+    """신청서 반려 사유 코드."""
+
+    CONTENT_INCOMPLETE = "content_incomplete", "콘텐츠 보완 필요"
+    PHOTO_ISSUE = "photo_issue", "이미지 품질 문제"
+    GUIDELINE_MISMATCH = "guideline_mismatch", "가이드라인 불일치"
+    DUPLICATE = "duplicate", "중복 신청"
+    OTHER = "other", "기타"
+
+
 class Submission(BaseModel):
     """사용자가 작성한 소개 신청서."""
 
@@ -51,7 +61,12 @@ class Submission(BaseModel):
     build_snapshot = models.JSONField(default=dict)
     story_blocks = models.JSONField(default=list)
     status = models.CharField(max_length=20, choices=SubmissionStatus.choices, default=SubmissionStatus.DRAFT)
-    rejection_reason = models.TextField(blank=True)
+    reason_code = models.CharField(
+        max_length=40,
+        choices=SubmissionRejectionReason.choices,
+        blank=True,
+    )
+    reason_detail = models.TextField(blank=True)
 
     class Meta:
         db_table = "submission_submission"
@@ -74,6 +89,13 @@ class Submission(BaseModel):
             raise ValidationError({"story_blocks": "스토리 블록은 리스트 형태여야 합니다."})
         if not isinstance(self.build_snapshot, dict):
             raise ValidationError({"build_snapshot": "빌드 스냅샷은 dict 형태여야 합니다."})
+
+        if self.status == SubmissionStatus.REJECTED:
+            if not self.reason_code:
+                raise ValidationError({"reason_code": "반려 사유 코드를 선택해 주세요."})
+        else:
+            self.reason_code = ""
+            self.reason_detail = ""
 
     def save(self, *args, **kwargs):
         self.full_clean(exclude=None)

@@ -42,7 +42,8 @@ class SubmissionAdmin(admin.ModelAdmin):
                     "bike",
                     "build",
                     "status",
-                    "rejection_reason",
+                    "reason_code",
+                    "reason_detail",
                 )
             },
         ),

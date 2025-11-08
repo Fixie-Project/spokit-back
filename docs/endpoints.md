@@ -126,12 +126,14 @@
 | POST | `/api/submissions/<uuid>/submit/` | 초안 → 접수(`submitted`) 전환 |
 | POST | `/api/submissions/<uuid>/resubmit/` | 반려 → 재신청(`resubmitted`) (Body: `comment` 선택) |
 
+- 반려된 신청서는 `reason_code`(사전 정의된 카테고리)와 `reason_detail`(추가 설명)로 사유가 전달됩니다.
+
 ### 4.1 운영진 워크플로우 `/api/submission-workflow/<uuid>/`
 | Method | Action | 권한 | 설명 |
 | --- | --- | --- | --- |
 | POST | `/review/` | Staff 이상 | `in_review` 상태로 전환 |
 | POST | `/approve/` | Editor/Admin | `approved` 상태로 전환 |
-| POST | `/reject/` | Editor/Admin | 반려 처리, Body: `reason` |
+| POST | `/reject/` | Editor/Admin | 반려 처리, Body: `reason_code`, `reason_detail`(선택) |
 
 - 모든 상태 전이는 `SubmissionStatusLog` 에 남습니다.
 

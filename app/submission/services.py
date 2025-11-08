@@ -41,6 +41,8 @@ def change_submission_status(
     to_status: str,
     actor: User,
     comment: str = "",
+    reason_code: str | None = None,
+    reason_detail: str = "",
 ) -> Submission:
     """신청서 상태를 전환하고 로그를 남깁니다."""
 
@@ -54,8 +56,13 @@ def change_submission_status(
             {"status": f"{from_status} → {to_status} 전이는 허용되지 않습니다."}
         )
 
-    if to_status == SubmissionStatus.REJECTED and not comment:
-        raise ValidationError({"comment": "반려 사유를 입력해 주세요."})
+    if to_status == SubmissionStatus.REJECTED:
+        if not reason_code:
+            raise ValidationError({"reason_code": "반려 사유 코드를 선택해 주세요."})
+        comment = comment or reason_detail or reason_code
+    else:
+        reason_code = ""
+        reason_detail = ""
 
     changed_by_staff, changed_by_user = _resolve_actor(actor)
     if not changed_by_staff and not changed_by_user:
@@ -63,7 +70,9 @@ def change_submission_status(
 
     with transaction.atomic():
         submission.status = to_status
-        submission.save(update_fields=["status", "updated_at"])
+        submission.reason_code = reason_code or ""
+        submission.reason_detail = reason_detail or ""
+        submission.save(update_fields=["status", "reason_code", "reason_detail", "updated_at"])
 
         log_kwargs = {
             "submission": submission,

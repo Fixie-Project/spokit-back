@@ -84,6 +84,8 @@ def _submission_examples():
                     "frame_name": "Midnight Run",
                 },
                 "status": "submitted",
+                "reason_code": None,
+                "reason_detail": "",
                 "created_at": "2025-05-01T21:05:11Z",
                 "updated_at": "2025-05-10T11:22:33Z",
             },
@@ -242,12 +244,15 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         submission = self.get_object()
         payload = SubmissionRejectSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
-        reason = payload.validated_data["reason"].strip()
+        reason_code = payload.validated_data["reason_code"]
+        reason_detail = payload.validated_data.get("reason_detail", "").strip()
         change_submission_status(
             submission,
             to_status=SubmissionStatus.REJECTED,
             actor=request.user,
-            comment=reason,
+            comment=reason_detail,
+            reason_code=reason_code,
+            reason_detail=reason_detail,
         )
         serializer = self.get_serializer(submission)
         return Response(serializer.data, status=status.HTTP_200_OK)

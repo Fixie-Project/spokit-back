@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from app.bike.serializers import BikeSerializer, BikeBuildSerializer
 
-from .models import Submission, SubmissionImage
+from .models import Submission, SubmissionImage, SubmissionRejectionReason
 
 
 class SubmissionImageSerializer(serializers.ModelSerializer):
@@ -51,7 +51,8 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "build_snapshot",
             "story_blocks",
             "status",
-            "rejection_reason",
+            "reason_code",
+            "reason_detail",
             "created_at",
             "updated_at",
             "images",
@@ -60,7 +61,8 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "status",
-            "rejection_reason",
+            "reason_code",
+            "reason_detail",
             "created_at",
             "updated_at",
             "images",
@@ -103,4 +105,5 @@ class SubmissionCommentSerializer(serializers.Serializer):
 class SubmissionRejectSerializer(serializers.Serializer):
     """반려 사유를 명시하는 직렬화기."""
 
-    reason = serializers.CharField(required=True, allow_blank=False)
+    reason_code = serializers.ChoiceField(choices=SubmissionRejectionReason.choices, required=True)
+    reason_detail = serializers.CharField(required=False, allow_blank=True)
