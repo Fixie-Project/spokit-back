@@ -180,7 +180,7 @@ class SubmissionStatusLog(BaseModel):
         verbose_name_plural = "신청서 상태 로그"
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(changed_by_staff__isnull=False, changed_by_user__isnull=True)
                     | models.Q(changed_by_staff__isnull=True, changed_by_user__isnull=False)
                 ),

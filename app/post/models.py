@@ -72,6 +72,7 @@ class Post(BaseModel):
         related_name="posts",
     )
     build_snapshot = models.JSONField(default=dict)
+    story_snapshot = models.JSONField(default=list)
     rider = models.ForeignKey(
         "user.User",
         null=True,
@@ -134,6 +135,29 @@ class Post(BaseModel):
             "status": self.status,
             "slug": self.slug,
         }
+
+    def sync_snapshots_from_submission(self, *, force: bool = False) -> bool:
+        """Copy immutable data from submission to local snapshots."""
+
+        if not self.submission_id:
+            return False
+
+        changed = False
+        submission = self.submission
+
+        if force or not self.build_snapshot:
+            snapshot = submission.build_snapshot or {}
+            if snapshot != self.build_snapshot:
+                self.build_snapshot = snapshot
+                changed = True
+
+        if force or not self.story_snapshot:
+            story_data = submission.story_blocks or []
+            if story_data != self.story_snapshot:
+                self.story_snapshot = story_data
+                changed = True
+
+        return changed
 
 
 class PostImagePurpose(models.TextChoices):

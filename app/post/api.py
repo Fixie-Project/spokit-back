@@ -1,7 +1,7 @@
 """게시글 관련 API 뷰셋입니다."""
 from __future__ import annotations
 
-from django.db.models import F
+from django.db.models import Count, F
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, viewsets
 from rest_framework.response import Response
@@ -48,7 +48,7 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = (
         Post.objects.select_related("author", "submission", "bike", "build", "rider")
         .prefetch_related("tags", "likes")
-        .all()
+        .annotate(comment_count=Count("comments", distinct=True))
     )
 
     def get_permissions(self):
@@ -70,6 +70,8 @@ class PostViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         staff = getattr(self.request.user, "staff_profile", None)
         post = serializer.save(author=staff)
+        if post.sync_snapshots_from_submission(force=True):
+            post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
         submission = post.submission
         if submission and submission.status not in {SubmissionStatus.PUBLISHED, SubmissionStatus.POSTING}:
             change_submission_status(
@@ -80,6 +82,9 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         post = serializer.save()
+         # if snapshots empty, populate once
+        if post.sync_snapshots_from_submission(force=False):
+            post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
         submission = post.submission
         if submission and submission.status == SubmissionStatus.POSTING and post.status == PostStatus.PUBLISHED:
             change_submission_status(

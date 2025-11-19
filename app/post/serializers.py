@@ -50,6 +50,8 @@ class PostSerializer(serializers.ModelSerializer):
 
     tags = TagSerializer(many=True, read_only=True)
     like_count = serializers.IntegerField(source="likes.count", read_only=True)
+    comment_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
     submission = serializers.SerializerMethodField()
     bike = BikeSerializer(read_only=True)
     build = BikeBuildSerializer(read_only=True)
@@ -64,6 +66,7 @@ class PostSerializer(serializers.ModelSerializer):
             "bike",
             "build",
             "build_snapshot",
+            "story_snapshot",
             "rider",
             "main_title",
             "sub_title",
@@ -81,6 +84,8 @@ class PostSerializer(serializers.ModelSerializer):
             "tags",
             "images",
             "like_count",
+            "comment_count",
+            "is_liked",
         ]
         read_only_fields = (
             "id",
@@ -89,6 +94,7 @@ class PostSerializer(serializers.ModelSerializer):
             "bike",
             "build",
             "build_snapshot",
+            "story_snapshot",
             "rider",
             "published_at",
             "created_at",
@@ -97,6 +103,8 @@ class PostSerializer(serializers.ModelSerializer):
             "tags",
             "images",
             "like_count",
+            "comment_count",
+            "is_liked",
         )
 
     def get_submission(self, obj: Post):
@@ -107,6 +115,22 @@ class PostSerializer(serializers.ModelSerializer):
             "id": str(submission.id),
             "status": submission.status,
         }
+
+    def get_comment_count(self, obj: Post) -> int:
+        count = getattr(obj, "comment_count", None)
+        if count is not None:
+            return count
+        return obj.comments.count()
+
+    def get_is_liked(self, obj: Post) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        prefetched_likes = obj._prefetched_objects_cache.get("likes") if hasattr(obj, "_prefetched_objects_cache") else None
+        if prefetched_likes is not None:
+            return any(like.user_id == user.id for like in prefetched_likes)
+        return obj.likes.filter(user=user).exists()
 
 
 class PostWriteSerializer(serializers.ModelSerializer):
@@ -142,6 +166,8 @@ class PostWriteSerializer(serializers.ModelSerializer):
         post = super().create(validated_data)
         if tags:
             post.tags.set(tags)
+        if post.sync_snapshots_from_submission(force=True):
+            post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
         return post
 
     def update(self, instance, validated_data):
@@ -149,4 +175,6 @@ class PostWriteSerializer(serializers.ModelSerializer):
         post = super().update(instance, validated_data)
         if tags is not None:
             post.tags.set(tags)
+        if post.sync_snapshots_from_submission(force=False):
+            post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
         return post

@@ -51,9 +51,12 @@
 - `GET /api/bikes/?visibility=<public|private>` *(로그인)*
   - 자신의 자전거 목록을 반환합니다. `visibility` 를 생략하면 전체가 내려옵니다.
 
-### 2.2 다른 사용자 자전거/빌드 보기
+### 2.2 공개 자전거 보기
+- `GET /api/public/bikes/`
+  - 누구나 접근 가능. 전체 사용자 중 공개로 설정된 자전거를 모두 반환합니다.
+  - 각 자전거에는 공개 빌드의 `id`/`title`을 담은 `build_names` 배열이 포함됩니다.
 - `GET /api/users/<user_uuid>/bikes/`
-  - 로그인 필요. 해당 사용자의 공개 자전거만 반환합니다.
+  - 로그인 필요. 특정 사용자의 공개 자전거만 반환합니다.
   - 각 자전거에는 공개 빌드의 `id`/`title`을 담은 `build_names` 배열이 포함됩니다.
 - `GET /api/users/<user_uuid>/bike-builds/`
   - 로그인 필요. 해당 사용자의 공개 빌드만 반환합니다.
@@ -62,13 +65,13 @@
 ### 2.3 세부 엔드포인트
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/api/bikes/<uuid>/` | 조건부* | 자전거 상세. 소유자만 비공개 자전거 확인 가능 |
+| GET | `/api/bikes/<uuid>/` | 로그인 | 자전거 상세. 소유자만 비공개 자전거 확인 가능 |
 | GET | `/api/bikes/<uuid>/builds/` | 로그인 | 소유자는 전체, 타인은 공개 빌드만 확인 |
 | POST | `/api/bikes/` | 로그인 | 자전거 등록 (요청 사용자가 자동 소유자) |
 | PATCH/PUT | `/api/bikes/<uuid>/` | 소유자 | 자전거 수정 |
 | DELETE | `/api/bikes/<uuid>/` | 소유자 | 자전거 삭제 |
 
-- *비로그인은 공개 자전거에 한해 상세 조회가 가능합니다.
+
 
 ---
 

@@ -79,7 +79,7 @@ class BikeListCreateView(APIView):
 class BikeDetailView(APIView):
     """자전거 상세 조회/수정/삭제."""
 
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
 
     def _get_object(self, bike_id: str) -> Bike:
         return get_object_or_404(Bike.objects.prefetch_related("builds"), pk=bike_id)
@@ -87,7 +87,7 @@ class BikeDetailView(APIView):
     @extend_schema(tags=["Bikes"], summary="자전거 상세 조회", responses=BikeDetailResponseSerializer)
     def get(self, request, bike_id: str):
         bike = self._get_object(bike_id)
-        if bike.is_public or (request.user.is_authenticated and bike.owner_id == request.user.id):
+        if bike.is_public or bike.owner_id == request.user.id:
             serializer = BikeSerializer(bike, context={"request": request})
             return success_response("자전거를 조회했습니다.", serializer.data)
         raise PermissionDenied("이 자전거를 볼 수 있는 권한이 없습니다.")
@@ -125,7 +125,7 @@ class BikeOwnerPublicListAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(tags=["Bikes"], summary="사용자 자전거 목록", responses=BikePublicListResponseSerializer)
+    @extend_schema(tags=["Bikes"], summary="사용자 공개 자전거 목록", responses=BikePublicListResponseSerializer)
     def get(self, request, user_id: str):
         if not get_user_model().objects.filter(id=user_id).exists():
             return error_response(
@@ -149,6 +149,34 @@ class BikeOwnerPublicListAPIView(APIView):
         )
         serializer = BikePublicListSerializer(queryset, many=True, context={"request": request})
         return success_response("특정 사용자의 자전거 목록을 조회했습니다.", serializer.data)
+
+
+class BikePublicArchiveListAPIView(APIView):
+    """모든 사용자의 공개 자전거 목록."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        tags=["Bikes"],
+        summary="전체 공개 자전거 목록",
+        responses=BikePublicListResponseSerializer,
+    )
+    def get(self, request):
+        queryset = Bike.objects.filter(is_public=True).prefetch_related(
+            Prefetch(
+                "builds",
+                queryset=BikeBuild.objects.filter(is_public=True).only("id", "title"),
+                to_attr="_public_builds",
+            )
+        ).only(
+            "id",
+            "name",
+            "frame_name",
+            "created_at",
+            "updated_at",
+        )
+        serializer = BikePublicListSerializer(queryset, many=True, context={"request": request})
+        return success_response("공개 자전거 목록을 조회했습니다.", serializer.data)
 
 
 class BikeBuildListCreateView(APIView):
