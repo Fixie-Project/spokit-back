@@ -98,6 +98,17 @@ class PostInteractionTests(TestCase):
         self.assertEqual(data["comment_count"], 1)
         self.assertTrue(data["is_liked"])
 
+    def test_editor_pick_flag_in_serializer(self) -> None:
+        detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
+        response = self.client.get(detail_url)
+        self.assertFalse(response.json()["is_editor_pick"])
+
+        self.post.is_editor_pick = True
+        self.post.save(update_fields=["is_editor_pick"])
+
+        response = self.client.get(detail_url)
+        self.assertTrue(response.json()["is_editor_pick"])
+
     def test_sync_snapshots_from_submission(self) -> None:
         submission = Submission.objects.create(
             user=self.user,

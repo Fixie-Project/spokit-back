@@ -96,6 +96,7 @@ class Post(BaseModel):
     status = models.CharField(max_length=20, choices=PostStatus.choices, default=PostStatus.DRAFT)
     published_at = models.DateTimeField(null=True, blank=True)
     view_count = models.PositiveIntegerField(default=0)
+    is_editor_pick = models.BooleanField(default=False)
 
     class Meta:
         db_table = "post_post"

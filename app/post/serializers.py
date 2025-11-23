@@ -81,6 +81,7 @@ class PostSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "view_count",
+            "is_editor_pick",
             "tags",
             "images",
             "like_count",
@@ -100,6 +101,7 @@ class PostSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "view_count",
+            "is_editor_pick",
             "tags",
             "images",
             "like_count",
@@ -158,6 +160,7 @@ class PostWriteSerializer(serializers.ModelSerializer):
             "frame_type",
             "slug",
             "status",
+            "is_editor_pick",
             "tags",
         ]
 
