@@ -80,7 +80,6 @@ class PostSerializer(serializers.ModelSerializer):
             "published_at",
             "created_at",
             "updated_at",
-            "view_count",
             "is_editor_pick",
             "tags",
             "images",
@@ -181,3 +180,9 @@ class PostWriteSerializer(serializers.ModelSerializer):
         if post.sync_snapshots_from_submission(force=False):
             post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
         return post
+
+
+class PostDetailSerializer(PostSerializer):
+    class Meta(PostSerializer.Meta):
+        fields = PostSerializer.Meta.fields + ["view_count"]
+        read_only_fields = PostSerializer.Meta.read_only_fields + ("view_count",)

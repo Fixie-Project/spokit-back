@@ -11,7 +11,7 @@ from app.submission.services import change_submission_status
 from app.user.permissions import IsEditorOrAdmin
 
 from .models import Post, PostStatus
-from .serializers import PostSerializer, PostWriteSerializer
+from .serializers import PostDetailSerializer, PostSerializer, PostWriteSerializer
 
 PUBLIC_TAG = "Public"
 
@@ -59,6 +59,8 @@ class PostViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action in {"create", "update", "partial_update"}:
             return PostWriteSerializer
+        if self.action == "retrieve":
+            return PostDetailSerializer
         return PostSerializer
 
     def get_queryset(self):
