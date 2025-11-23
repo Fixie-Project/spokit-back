@@ -1,7 +1,7 @@
 """게시글 관련 API 뷰셋입니다."""
 from __future__ import annotations
 
-from django.db.models import Count, F
+from django.db.models import Count, F, Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import permissions, viewsets
 from rest_framework.response import Response
@@ -65,6 +65,14 @@ class PostViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
             qs = qs.filter(status=PostStatus.PUBLISHED)
+        query = self.request.query_params.get("q")
+        if query:
+            qs = qs.filter(
+                Q(main_title__icontains=query)
+                | Q(sub_title__icontains=query)
+                | Q(content_md__icontains=query)
+                | Q(frame_brand__icontains=query)
+            )
         return qs
 
     def perform_create(self, serializer):

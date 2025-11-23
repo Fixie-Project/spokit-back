@@ -152,6 +152,7 @@
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/api/posts/` | 누구나 | 게시글 목록. 비스태프는 발행(`published`)만 확인 |
+  - `?q=` 파라미터로 제목/부제/본문/브랜드에 키워드 검색 가능 |
 | GET | `/api/posts/<slug>/` | 누구나 | 게시글 상세 (발행 글 조회 시 `view_count` 1 증가) |
 | POST | `/api/posts/` | Editor/Admin | 게시글 생성 |
 | PATCH | `/api/posts/<slug>/` | Editor/Admin | 게시글 수정 |

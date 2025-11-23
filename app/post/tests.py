@@ -109,6 +109,29 @@ class PostInteractionTests(TestCase):
         response = self.client.get(detail_url)
         self.assertTrue(response.json()["is_editor_pick"])
 
+    def test_post_search_query_filters_results(self) -> None:
+        Post.objects.create(
+            bike=self.bike,
+            build=self.build,
+            build_snapshot={"frame": "Affinity"},
+            story_snapshot=[],
+            main_title="숨은 글",
+            sub_title="비공개",
+            content_md="",
+            content_html="<p>내용</p>",
+            content_json={"type": "doc", "content": []},
+            frame_brand="Hidden",
+            frame_type=FrameType.ALLOY,
+            slug="hidden-post",
+            status=PostStatus.DRAFT,
+        )
+
+        response = self.client.get("/api/posts/?q=첫")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["slug"], self.post.slug)
+
     def test_sync_snapshots_from_submission(self) -> None:
         submission = Submission.objects.create(
             user=self.user,
