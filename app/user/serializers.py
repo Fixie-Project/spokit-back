@@ -50,6 +50,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "username",
+            "is_username_public",
             "nickname",
             "region",
             "intro",

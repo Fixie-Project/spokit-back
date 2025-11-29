@@ -7,9 +7,9 @@ from . import views
 app_name = "user"
 
 urlpatterns = [
-    # JWT 인증 엔드포인트
-    path("auth/jwt/create/", views.EmailTokenObtainPairAPIView.as_view(), name="jwt-create"),
-    path("auth/jwt/refresh/", TokenRefreshView.as_view(), name="jwt-refresh"),
+    # JWT 인증 엔드포인트 (이메일/비밀번호 로그인 비활성화)
+    # path("auth/jwt/create/", views.EmailTokenObtainPairAPIView.as_view(), name="jwt-create"),
+    # path("auth/jwt/refresh/", TokenRefreshView.as_view(), name="jwt-refresh"),
     
     # OAuth2 인증 엔드포인트
     path("auth/google/", views.GoogleOAuthLoginAPIView.as_view(), name="oauth-google"),

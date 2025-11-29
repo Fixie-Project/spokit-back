@@ -58,6 +58,7 @@ class User(UUIDPrimaryKeyModel, TimeStampedModel, AbstractBaseUser, PermissionsM
 
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=50)
+    is_username_public = models.BooleanField(default=False)
     nickname = models.CharField(max_length=50, unique=True)
     region = models.CharField(max_length=50, blank=True)
     intro = models.TextField(blank=True)
