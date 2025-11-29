@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from app.core.models import BaseImage
+
 from .models import Bike, BikeBuild
 
 
@@ -53,6 +55,7 @@ class BikeBuildSerializer(serializers.ModelSerializer):
     """자전거 빌드 메타데이터를 직렬화."""
 
     base_bike = BikeSummarySerializer(read_only=True)
+    main_image = serializers.SerializerMethodField()
 
     class Meta:
         model = BikeBuild
@@ -63,16 +66,39 @@ class BikeBuildSerializer(serializers.ModelSerializer):
             "is_public",
             "created_at",
             "updated_at",
+            "main_image",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def get_main_image(self, obj: BikeBuild):
+        image = getattr(obj, "main_image", None)
+        if not image:
+            return None
+        return {
+            "url": image.url,
+            "width": image.width,
+            "height": image.height,
+        }
 
 
 class BikeBuildWriteSerializer(serializers.ModelSerializer):
     """자전거 빌드를 생성/수정하는 직렬화기."""
 
+    main_image = serializers.PrimaryKeyRelatedField(
+        queryset=BaseImage.objects.all(), required=False, allow_null=True
+    )
+
     class Meta:
         model = BikeBuild
-        fields = ["id", "base_bike", "title", "components", "note", "is_public"]
+        fields = [
+            "id",
+            "base_bike",
+            "title",
+            "components",
+            "note",
+            "is_public",
+            "main_image",
+        ]
         read_only_fields = ("id",)
         extra_kwargs = {
             "components": {

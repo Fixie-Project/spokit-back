@@ -35,6 +35,7 @@
     "template": "내 스포킷은 ____ 입니다. #Spokit #픽시인터뷰"
   },
   "non_selectable_groups": ["final","me"],
+  "require_one_from_groups": ["outro"],
   "groups": {
     "me": [
       {

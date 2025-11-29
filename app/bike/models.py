@@ -63,6 +63,13 @@ class BikeBuild(BaseModel):
     components = models.JSONField(default=dict)
     note = models.TextField(blank=True)
     is_public = models.BooleanField(default=True)
+    main_image = models.ForeignKey(
+        BaseImage,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="build_main_images",
+    )
 
     class Meta:
         db_table = "bike_build"

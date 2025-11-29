@@ -6,6 +6,7 @@ from typing import Optional
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from app.bike.models import Bike, BikeBuild
 from app.user.models import Staff, User
 
 from .models import Submission, SubmissionStatus, SubmissionStatusLog
@@ -19,6 +20,27 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     SubmissionStatus.REJECTED: {SubmissionStatus.RESUBMITTED},
     SubmissionStatus.RESUBMITTED: {SubmissionStatus.IN_REVIEW},
 }
+
+
+def build_to_snapshot(build: BikeBuild) -> dict:
+    """빌드 객체를 신청서에 저장할 스냅샷 형태로 변환."""
+
+    bike = build.base_bike
+    return {
+        "bike": {
+            "id": str(bike.id),
+            "name": bike.name,
+            "frame_name": bike.frame_name,
+            "is_public": bike.is_public,
+        },
+        "build": {
+            "id": str(build.id),
+            "title": build.title,
+            "components": build.components,
+            "note": build.note,
+            "is_public": build.is_public,
+        },
+    }
 
 
 def _resolve_actor(user: Optional[User]) -> tuple[Optional[Staff], Optional[User]]:
