@@ -16,6 +16,7 @@ from app.submission.api import (
     SubmissionModerationViewSet,
     SubmissionViewSet,
 )
+from app.core.api import BaseImageUploadView
 
 router = DefaultRouter()
 router.register(r"submissions", SubmissionViewSet, basename="submission")
@@ -34,6 +35,7 @@ urlpatterns = [
     path("api/", include("app.user.urls")),
     path("api/studio/", include("app.studio.urls")),
     path("api/question-set/", QuestionSetView.as_view(), name="question-set"),
+    path("api/images/", BaseImageUploadView.as_view(), name="image-upload"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="api-schema"), name="api-redoc"),

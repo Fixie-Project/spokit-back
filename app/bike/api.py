@@ -200,11 +200,25 @@ class BikeBuildListCreateView(APIView):
     )
     def get(self, request):
         visibility = _get_visibility(request, default=None)
-        queryset = BikeBuild.objects.filter(base_bike__owner=request.user).select_related("base_bike")
+        queryset = BikeBuild.objects.filter(base_bike__owner=request.user).select_related("base_bike", "main_image")
+
+        frame_name = request.query_params.get("frame_name")
+        base_bike_id = request.query_params.get("base_bike")
+        if frame_name:
+            queryset = queryset.filter(base_bike__frame_name__icontains=frame_name)
+        if base_bike_id:
+            queryset = queryset.filter(base_bike_id=base_bike_id)
+
         if visibility == "public":
             queryset = queryset.filter(is_public=True, base_bike__is_public=True)
         elif visibility == "private":
             queryset = queryset.filter(is_public=False)
+
+        ordering = request.query_params.get("ordering", "-created_at")
+        allowed_ordering = {"created_at", "-created_at", "title", "-title"}
+        if ordering not in allowed_ordering:
+            ordering = "-created_at"
+        queryset = queryset.order_by(ordering)
         serializer = BikeBuildSerializer(queryset, many=True, context={"request": request})
         return success_response("자전거 빌드 목록을 조회했습니다.", serializer.data)
 
@@ -229,7 +243,10 @@ class BikeBuildDetailView(APIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def _get_object(self, build_id: str) -> BikeBuild:
-        return get_object_or_404(BikeBuild.objects.select_related("base_bike"), pk=build_id)
+        return get_object_or_404(
+            BikeBuild.objects.select_related("base_bike", "main_image").prefetch_related("images__image"),
+            pk=build_id,
+        )
 
     @extend_schema(tags=["Bike Builds"], summary="자전거 빌드 상세 조회", responses=BikeBuildDetailResponseSerializer)
     def get(self, request, build_id: str):
@@ -273,6 +290,22 @@ class BikeBuildDetailView(APIView):
             raise PermissionDenied("본인 자전거 빌드만 삭제할 수 있습니다.")
         build.delete()
         return success_response("자전거 빌드가 삭제되었습니다.")
+
+
+class BikeBuildArchiveListView(APIView):
+    """전체 공개 빌드 목록."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(tags=["Bike Builds"], summary="전체 공개 빌드 목록", responses=BikeBuildListResponseSerializer)
+    def get(self, request):
+        queryset = (
+            BikeBuild.objects.filter(is_public=True, base_bike__is_public=True)
+            .select_related("base_bike", "main_image")
+            .order_by("-created_at")
+        )
+        serializer = BikeBuildSerializer(queryset, many=True, context={"request": request})
+        return success_response("공개 빌드 목록을 조회했습니다.", serializer.data)
 
 
 class BikeBuildPublicListView(APIView):

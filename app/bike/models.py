@@ -81,3 +81,32 @@ class BikeBuild(BaseModel):
 
     def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
         return self.title or f"Build of {self.base_bike_id}"
+
+
+class BuildImage(BaseModel):
+    """빌드에 연결되는 추가 이미지."""
+
+    build = models.ForeignKey(
+        BikeBuild,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.ForeignKey(
+        BaseImage,
+        on_delete=models.CASCADE,
+        related_name="build_images",
+    )
+    order = models.PositiveIntegerField(default=0)
+    caption = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        db_table = "bike_build_image"
+        verbose_name = "빌드 이미지"
+        verbose_name_plural = "빌드 이미지"
+        ordering = ["order", "created_at"]
+        indexes = [
+            models.Index(fields=["build", "order"], name="bike_build_image_idx"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
+        return f"{self.build_id} · {self.order}"

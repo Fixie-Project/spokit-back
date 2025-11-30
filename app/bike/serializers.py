@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from app.core.models import BaseImage
 
-from .models import Bike, BikeBuild
+from .models import Bike, BikeBuild, BuildImage
 
 
 COMPONENT_CATEGORIES = (
@@ -87,6 +87,9 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
     main_image = serializers.PrimaryKeyRelatedField(
         queryset=BaseImage.objects.all(), required=False, allow_null=True
     )
+    images = serializers.PrimaryKeyRelatedField(
+        queryset=BaseImage.objects.all(), many=True, required=False, allow_empty=True, write_only=True
+    )
 
     class Meta:
         model = BikeBuild
@@ -98,6 +101,7 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
             "note",
             "is_public",
             "main_image",
+            "images",
         ]
         read_only_fields = ("id",)
         extra_kwargs = {
@@ -142,11 +146,41 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
 
         return cleaned
 
+    def _set_images(self, build: BikeBuild, images: list[BaseImage]):
+        if images is None:
+            return
+        BuildImage.objects.filter(build=build).delete()
+        BuildImage.objects.bulk_create(
+            [BuildImage(build=build, image=image, order=idx) for idx, image in enumerate(images)]
+        )
+
+    def validate_images(self, value):
+        if value is None:
+            return value
+        if len(value) > 5:
+            raise serializers.ValidationError("이미지는 최대 5장까지 등록할 수 있습니다.")
+        return value
+
+    def create(self, validated_data):
+        images = validated_data.pop("images", None)
+        build = super().create(validated_data)
+        if images is not None:
+            self._set_images(build, images)
+        return build
+
+    def update(self, instance: BikeBuild, validated_data):
+        images = validated_data.pop("images", None)
+        build = super().update(instance, validated_data)
+        if images is not None:
+            self._set_images(build, images)
+        return build
+
 
 class BikeSerializer(serializers.ModelSerializer):
     """자전거 기본 정보와 연결된 빌드를 함께 직렬화."""
 
     builds = BikeBuildSerializer(many=True, read_only=True)
+    main_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Bike
@@ -164,11 +198,23 @@ class BikeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("id", "owner", "created_at", "updated_at", "builds")
 
+    def get_main_image(self, obj: Bike):
+        image = getattr(obj, "main_image", None)
+        if not image:
+            return None
+        return {
+            "url": image.url,
+            "width": image.width,
+            "height": image.height,
+        }
+
 
 class BikeBuildDetailSerializer(serializers.ModelSerializer):
     """자전거 빌드의 상세 정보를 직렬화."""
 
     base_bike = BikeSummarySerializer(read_only=True)
+    main_image = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = BikeBuild
@@ -181,8 +227,36 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
             "is_public",
             "created_at",
             "updated_at",
+            "main_image",
+            "images",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def get_main_image(self, obj: BikeBuild):
+        image = getattr(obj, "main_image", None)
+        if not image:
+            return None
+        return {
+            "url": image.url,
+            "width": image.width,
+            "height": image.height,
+        }
+
+    def get_images(self, obj: BikeBuild):
+        gallery = getattr(obj, "images", None)
+        if not gallery:
+            return []
+        return [
+            {
+                "id": str(item.image_id),
+                "url": item.image.url,
+                "width": item.image.width,
+                "height": item.image.height,
+                "order": item.order,
+                "caption": item.caption,
+            }
+            for item in gallery.all()
+        ]
 
 
 class MessageSerializer(serializers.Serializer):

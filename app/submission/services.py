@@ -26,6 +26,9 @@ def build_to_snapshot(build: BikeBuild) -> dict:
     """빌드 객체를 신청서에 저장할 스냅샷 형태로 변환."""
 
     bike = build.base_bike
+    main_image = build.main_image
+    gallery = getattr(build, "images", [])
+    gallery_items = gallery.all() if hasattr(gallery, "all") else (gallery or [])
     return {
         "bike": {
             "id": str(bike.id),
@@ -39,6 +42,27 @@ def build_to_snapshot(build: BikeBuild) -> dict:
             "components": build.components,
             "note": build.note,
             "is_public": build.is_public,
+            "main_image": (
+                {
+                    "id": str(main_image.id),
+                    "url": main_image.url,
+                    "width": main_image.width,
+                    "height": main_image.height,
+                }
+                if main_image
+                else None
+            ),
+            "images": [
+                {
+                    "id": str(item.image_id),
+                    "url": item.image.url,
+                    "width": item.image.width,
+                    "height": item.image.height,
+                    "order": item.order,
+                    "caption": item.caption,
+                }
+                for item in gallery_items
+            ],
         },
     }
 
