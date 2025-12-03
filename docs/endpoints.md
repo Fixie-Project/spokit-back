@@ -173,8 +173,10 @@
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/api/studio/dashboard/` | Staff | 접수/검토 중 신청 요약 |
+| GET | `/api/studio/submissions/` | Staff | 신청 목록(상태 필터 지원) |
 | GET | `/api/studio/submissions/<uuid>/` | Staff | 신청 상세 조회 |
 | PATCH | `/api/studio/submissions/<uuid>/` | Staff | 신청 일부 수정 |
+| PATCH | `/api/studio/submissions/<uuid>/status/` | Staff | 신청 상태만 변경 |
 | GET | `/api/studio/staff/<uuid>/` | Admin | 운영진 프로필 조회 |
 | PATCH | `/api/studio/staff/<uuid>/` | Admin | 운영진 정보 수정 |
 
@@ -185,6 +187,7 @@
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
 | POST | `/api/images/` | 로그인 | 업로드된 이미지의 메타데이터를 등록하고 `BaseImage.id`를 반환 |
+| POST | `/api/images/upload/` | 로그인 | multipart 파일 업로드→BaseImage 생성·반환 (jpg/png/webp, 10MB 제한) |
 
 요청 예시:
 ```json

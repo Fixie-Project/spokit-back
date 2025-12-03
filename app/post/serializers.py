@@ -3,10 +3,12 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from app.core.models import BaseImage
+
 from app.bike.serializers import BikeSerializer, BikeBuildSerializer
 from app.submission.models import Submission
 
-from .models import Comment, Post, PostImage, PostStatus, Tag
+from .models import Comment, Post, PostImage, PostImagePurpose, PostStatus, Tag
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -43,6 +45,15 @@ class PostImageSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class PostImageWriteSerializer(serializers.Serializer):
+    """게시글 이미지 생성용 입력."""
+
+    base_image = serializers.PrimaryKeyRelatedField(queryset=BaseImage.objects.all())
+    purpose = serializers.ChoiceField(choices=PostImagePurpose.choices)
+    order = serializers.IntegerField(required=False, default=0)
+    caption = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -140,6 +151,7 @@ class PostWriteSerializer(serializers.ModelSerializer):
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(), many=True, required=False
     )
+    images = PostImageWriteSerializer(many=True, required=False, write_only=True, allow_empty=True)
 
     class Meta:
         model = Post
@@ -161,25 +173,56 @@ class PostWriteSerializer(serializers.ModelSerializer):
             "status",
             "is_editor_pick",
             "tags",
+            "images",
         ]
 
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])
+        images = validated_data.pop("images", None)
         post = super().create(validated_data)
         if tags:
             post.tags.set(tags)
         if post.sync_snapshots_from_submission(force=True):
             post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
+        if images is not None:
+            self._set_images(post, images)
         return post
 
     def update(self, instance, validated_data):
         tags = validated_data.pop("tags", None)
+        images = validated_data.pop("images", None)
         post = super().update(instance, validated_data)
         if tags is not None:
             post.tags.set(tags)
         if post.sync_snapshots_from_submission(force=False):
             post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
+        if images is not None:
+            self._set_images(post, images)
         return post
+
+    def _set_images(self, post: Post, images_data: list[dict]):
+        PostImage.objects.filter(post=post).delete()
+        objs = []
+        for idx, item in enumerate(images_data):
+            base_image: BaseImage = item["base_image"]
+            purpose = item.get("purpose", PostImagePurpose.BODY)
+            order = item.get("order", idx)
+            caption = item.get("caption", "")
+            objs.append(
+                PostImage(
+                    post=post,
+                    purpose=purpose,
+                    order=order,
+                    caption=caption,
+                    url=base_image.url,
+                    s3_key=base_image.s3_key,
+                    width=base_image.width,
+                    height=base_image.height,
+                    filesize=base_image.filesize,
+                )
+            )
+        if objs:
+            PostImage.objects.bulk_create(objs)
 
 
 class PostDetailSerializer(PostSerializer):

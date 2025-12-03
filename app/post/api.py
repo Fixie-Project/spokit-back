@@ -47,7 +47,7 @@ class PostViewSet(viewsets.ModelViewSet):
     lookup_field = "slug"
     queryset = (
         Post.objects.select_related("author", "submission", "bike", "build", "rider")
-        .prefetch_related("tags", "likes")
+        .prefetch_related("tags", "likes", "images")
         .annotate(comment_count=Count("comments", distinct=True))
     )
 

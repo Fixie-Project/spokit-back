@@ -7,6 +7,12 @@ app_name = "studio"
 
 urlpatterns = [
     path("dashboard/", views.StudioDashboardAPIView.as_view(), name="dashboard"),
+    path("submissions/", views.StudioSubmissionListAPIView.as_view(), name="submission-list"),
     path("submissions/<uuid:pk>/", views.StudioSubmissionDetailAPIView.as_view(), name="submission-detail"),
+    path(
+        "submissions/<uuid:pk>/status/",
+        views.StudioSubmissionStatusAPIView.as_view(),
+        name="submission-status",
+    ),
     path("staff/<uuid:pk>/", views.StaffDetailAPIView.as_view(), name="staff-detail"),
 ]
