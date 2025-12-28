@@ -48,7 +48,7 @@
 
 ## 2. 자전거(Bikes)
 ### 2.1 내 자전거 보기
-- `GET /api/bikes/?visibility=<public|private>` *(로그인)*
+- `GET /api/me/bikes/?visibility=<public|private>` *(로그인)* — 에일리어스: `/api/bikes/`
   - 자신의 자전거 목록을 반환합니다. `visibility` 를 생략하면 전체가 내려옵니다.
 
 ### 2.2 공개 자전거 보기
@@ -65,7 +65,7 @@
 ### 2.3 세부 엔드포인트
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/api/bikes/<uuid>/` | 로그인 | 자전거 상세. 소유자만 비공개 자전거 확인 가능 |
+| GET | `/api/me/bikes/<uuid>/` *(에일리어스: `/api/bikes/<uuid>/`)* | 로그인 | 자전거 상세. 소유자만 비공개 자전거 확인 가능 |
 | GET | `/api/bikes/<uuid>/builds/` | 로그인 | 소유자는 전체, 타인은 공개 빌드만 확인 |
 | POST | `/api/bikes/` | 로그인 | 자전거 등록 (요청 사용자가 자동 소유자) |
 | PATCH/PUT | `/api/bikes/<uuid>/` | 소유자 | 자전거 수정 |
@@ -76,12 +76,12 @@
 ---
 
 ## 3. 자전거 빌드(Bike Builds)
-- 자신의 빌드 목록: `GET /api/bike-builds/?visibility=<public|private>&frame_name=<text>&base_bike=<uuid>&ordering=<created_at|-created_at|title|-title>` *(로그인)*
+- 자신의 빌드 목록: `GET /api/me/bike-builds/?visibility=<public|private>&frame_name=<text>&base_bike=<uuid>&ordering=<created_at|-created_at|title|-title>` *(로그인)* — 에일리어스: `/api/bike-builds/`
   - `visibility` 생략 시 전체, `public`/`private` 로 필터 가능.
 - 타인의 공개 빌드 목록: `GET /api/users/<user_uuid>/bike-builds/` *(로그인)*
 - 전체 공개 빌드 아카이브: `GET /api/public/bike-builds/` *(비로그인)*
 - 특정 자전거의 빌드 목록: `GET /api/bikes/<bike_uuid>/builds/` *(로그인)*
-- 빌드 상세: `GET /api/bike-builds/<uuid>/` (공개 빌드 또는 소유자) — main_image, images(갤러리) 포함
+- 빌드 상세: `GET /api/me/bike-builds/<uuid>/` *(에일리어스: `/api/bike-builds/<uuid>/`)* — 공개 빌드 또는 소유자 접근, main_image, images 포함
 - 빌드 수정: `PATCH /api/bike-builds/<uuid>/` (소유자)
 - 빌드 생성: `POST /api/bike-builds/` (소유 자전거에 한함) — 요청 본문 핵심 필드
   ```json
@@ -122,6 +122,7 @@
 
 ## 4. 소개 신청(Submission)
 - 모든 신청 API는 로그인 사용자 전용입니다.
+- 이미지 첨부는 각 `story_blocks[].images` 배열로 전달/조회합니다. 상위 레벨 `images` 필드는 요청·응답 모두 포함되지 않습니다.
 
 | Method | Path | 설명 |
 | --- | --- | --- |
@@ -157,10 +158,8 @@
 | --- | --- | --- | --- |
 | GET | `/api/posts/` | 누구나 | 게시글 목록. 비스태프는 발행(`published`)만 확인 |
   - `?q=` 파라미터로 제목/부제/본문/브랜드에 키워드 검색 가능 |
+  - 응답(`PostListSerializer`): `id`, `author`, `main_title`, `sub_title`, `created_at`, `is_editor_pick`, `tags`, `like_count`, `comment_count`(annotate), `is_liked`(로그인 시 사용자 기준, 미로그인 `false`) |
 | GET | `/api/posts/<slug>/` | 누구나 | 게시글 상세 (발행 글 조회 시 `view_count` 1 증가) |
-| POST | `/api/posts/` | Editor/Admin | 게시글 생성 |
-| PATCH | `/api/posts/<slug>/` | Editor/Admin | 게시글 수정 |
-| DELETE | `/api/posts/<slug>/` | Editor/Admin | 게시글 삭제 |
 
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
@@ -173,12 +172,44 @@
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/api/studio/dashboard/` | Staff | 접수/검토 중 신청 요약 |
+| GET | `/api/studio/posts/` | Editor/Admin | 게시글 목록(상태/검색/정렬) |
+| POST | `/api/studio/posts/` | Editor/Admin | 게시글 생성(신청서 없이도 가능, 있으면 approved여야 함) |
+| GET | `/api/studio/posts/<slug>/` | Editor/Admin | 게시글 상세 조회 |
+| PATCH | `/api/studio/posts/<slug>/` | Editor/Admin | 게시글 일부 수정(작성/검토/발행 등) |
+| DELETE | `/api/studio/posts/<slug>/` | Editor/Admin | 게시글 삭제 |
 | GET | `/api/studio/submissions/` | Staff | 신청 목록(상태 필터 지원) |
-| GET | `/api/studio/submissions/<uuid>/` | Staff | 신청 상세 조회 |
+| GET | `/api/studio/submissions/<uuid>/` | Staff | 신청 상세 조회 *(submitted이면 자동 in_review 전환)* |
 | PATCH | `/api/studio/submissions/<uuid>/` | Staff | 신청 일부 수정 |
 | PATCH | `/api/studio/submissions/<uuid>/status/` | Staff | 신청 상태만 변경 |
 | GET | `/api/studio/staff/<uuid>/` | Admin | 운영진 프로필 조회 |
 | PATCH | `/api/studio/staff/<uuid>/` | Admin | 운영진 정보 수정 |
+
+### `/api/studio/dashboard/` 응답 필드 (확장)
+- 기본 제공: `total_pending`, `total_posting`, `pending`, `posting` (생성일 내림차순)
+  - `pending`: submitted/in_review, `posting`: approved(기획 승인 완료)
+- 요약 리스트: `pending_top`, `posting_top` (최대 5건 기본, `?limit=<n>`으로 1~50 조정)
+- 신청 상태 집계: `status_counts` (`status` → 건수 맵)
+- 게시글 상태 집계: `post_status_counts`, `total_published_posts`, `total_working_posts`
+- 추가 카운트: `total_draft_posts`, `total_rejected_submissions`, `total_pending_submissions`
+- 작업 중인 글: `working_posts` (상태: `draft|review`, 최신 수정순, 최대 `limit`건)
+- 메타: `stats_last_updated` (서버 기준 타임스탬프)
+
+### `/api/studio/posts/` (운영진)
+- 쿼리: `status=<draft|review|published>`, `q=<keyword>`, `ordering=<created_at|-created_at|updated_at|-updated_at|published_at|-published_at>`
+- 응답: `PostStudioSerializer` 배열 — 퍼블릭 제한 없이 모든 상태 노출, 조회수 증분 없음.
+- POST: `PostWriteSerializer`로 생성, 연결된 신청서가 있으면 `approved` 상태여야 하며, 신청서 없이도 생성 가능.
+
+### `/api/studio/posts/<slug>/`
+- GET: `PostStudioSerializer` 단건(`{ "post": ... }`), 상태 무관, 조회수 증분 없음.
+- PATCH: `PostWriteSerializer`로 일부 수정. 상태가 `published`로 바뀌면 연동된 신청서가 `posting→published`로 전환됨.
+- DELETE: 204 No Content
+
+### `/api/studio/submissions/`
+- 목록 응답: 미리보기 전용 필드(`SubmissionPreviewSerializer`)
+  - `id`, `title`, `status`, `created_at`, `updated_at`
+  - `rider`: id/email/username/nickname/region/intro/sns_link
+  - `bike_frame`: 신청서에 연결된 자전거 프레임명 (없으면 null)
+  - `build_title`: 신청서에 연결된 빌드 이름 (없으면 null)
 
 ---
 
@@ -221,4 +252,4 @@
 
 ---
 
-최근 업데이트: 2025-10-21
+최근 업데이트: 2025-12-27

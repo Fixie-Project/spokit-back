@@ -1,17 +1,30 @@
 """스태프 전용 신청 관리 API 모음입니다."""
 from __future__ import annotations
 
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
-from rest_framework import views, status
+from django.utils import timezone
+from rest_framework import status, views
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from drf_spectacular.utils import extend_schema
+from app.post.models import Post, PostStatus
+from app.post.serializers import PostWriteSerializer
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.serializers import SubmissionSerializer
+from app.submission.services import change_submission_status
 from app.user.models import Staff
-from app.user.permissions import IsAdminRole, IsStaffUser
+from app.user.permissions import IsAdminRole, IsEditorOrAdmin, IsStaffUser
 from app.user.serializers import StaffSerializer
-from .serializers import StudioSubmissionSerializer, SubmissionStatusUpdateSerializer
+from .serializers import (
+    PostSummarySerializer,
+    PostStudioSerializer,
+    StudioSubmissionSerializer,
+    SubmissionPreviewSerializer,
+    SubmissionStatusUpdateSerializer,
+    SubmissionSummarySerializer,
+)
 
 
 class StudioDashboardAPIView(views.APIView):
@@ -20,15 +33,72 @@ class StudioDashboardAPIView(views.APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request) -> Response:
-        pending = Submission.objects.filter(
-            status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW]
-        ).select_related("bike", "build")
-        posting = Submission.objects.filter(status=SubmissionStatus.POSTING)
+        raw_limit = request.query_params.get("limit")
+        try:
+            limit = int(raw_limit) if raw_limit else 5
+        except (TypeError, ValueError):
+            limit = 5
+        limit = max(1, min(limit, 50))
+
+        pending = (
+            Submission.objects.filter(status__in=[SubmissionStatus.SUBMITTED, SubmissionStatus.IN_REVIEW])
+            .select_related("bike", "build")
+            .order_by("-created_at")
+        )
+        posting = (
+            Submission.objects.filter(status=SubmissionStatus.APPROVED)
+            .select_related("bike", "build")
+            .order_by("-created_at")
+        )
+
+        status_counts = {
+            row["status"]: row["total"]
+            for row in Submission.objects.values("status").annotate(total=Count("id"))
+        }
+
+        post_status_counts = {
+            row["status"]: row["total"]
+            for row in Post.objects.values("status").annotate(total=Count("id"))
+        }
+
+        total_pending_submissions = status_counts.get(SubmissionStatus.SUBMITTED, 0) + status_counts.get(
+            SubmissionStatus.IN_REVIEW, 0
+        )
+        total_rejected_submissions = status_counts.get(SubmissionStatus.REJECTED, 0)
+        total_draft_posts = post_status_counts.get(PostStatus.DRAFT, 0)
+        total_published_posts = post_status_counts.get(PostStatus.PUBLISHED, 0)
+        total_working_posts = post_status_counts.get(PostStatus.DRAFT, 0) + post_status_counts.get(PostStatus.REVIEW, 0)
+
+        working_posts = (
+            Post.objects.filter(status__in=[PostStatus.DRAFT, PostStatus.REVIEW])
+            .select_related("author__user", "rider")
+            .order_by("-updated_at")[:limit]
+        )
+
+        pending_top = pending[:limit]
+        posting_top = posting[:limit]
         payload = {
             "total_pending": pending.count(),
             "total_posting": posting.count(),
             "pending": SubmissionSerializer(pending, many=True, context={"request": request}).data,
             "posting": SubmissionSerializer(posting, many=True, context={"request": request}).data,
+            "pending_top": SubmissionSummarySerializer(
+                pending_top, many=True, context={"request": request}
+            ).data,
+            "posting_top": SubmissionSummarySerializer(
+                posting_top, many=True, context={"request": request}
+            ).data,
+            "status_counts": status_counts,
+            "post_status_counts": post_status_counts,
+            "total_published_posts": total_published_posts,
+            "total_working_posts": total_working_posts,
+            "total_draft_posts": total_draft_posts,
+            "total_rejected_submissions": total_rejected_submissions,
+            "total_pending_submissions": total_pending_submissions,
+            "working_posts": PostSummarySerializer(
+                working_posts, many=True, context={"request": request}
+            ).data,
+            "stats_last_updated": timezone.now(),
         }
         return Response(payload)
 
@@ -45,7 +115,7 @@ class StudioSubmissionListAPIView(views.APIView):
         if status_filter:
             qs = qs.filter(status=status_filter)
         qs = qs.order_by("-created_at")
-        serializer = StudioSubmissionSerializer(qs, many=True, context={"request": request})
+        serializer = SubmissionPreviewSerializer(qs, many=True, context={"request": request})
         return Response(serializer.data)
 
 
@@ -62,6 +132,12 @@ class StudioSubmissionDetailAPIView(views.APIView):
 
     def get(self, request, pk: str) -> Response:
         submission = self.get_object(pk)
+        if submission.status == SubmissionStatus.SUBMITTED:
+            submission = change_submission_status(
+                submission,
+                to_status=SubmissionStatus.IN_REVIEW,
+                actor=request.user,
+            )
         serializer = StudioSubmissionSerializer(submission, context={"request": request})
         return Response({"submission": serializer.data})
 
@@ -100,8 +176,6 @@ class StudioSubmissionStatusAPIView(views.APIView):
             SubmissionStatus.SUBMITTED,
             SubmissionStatus.IN_REVIEW,
             SubmissionStatus.APPROVED,
-            SubmissionStatus.POSTING,
-            SubmissionStatus.PUBLISHED,
             SubmissionStatus.REJECTED,
         }
         if target_status not in allowed:
@@ -145,3 +219,118 @@ class StaffDetailAPIView(views.APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class StudioPostListAPIView(views.APIView):
+    """운영진 전용 게시글 목록/검색/필터/생성."""
+
+    permission_classes = [IsEditorOrAdmin]
+
+    @extend_schema(tags=["Studio"], summary="게시글 목록(운영진)")
+    def get(self, request) -> Response:
+        qs = (
+            Post.objects.select_related("author__user", "submission", "bike", "build", "rider")
+            .prefetch_related("tags", "images")
+            .annotate(comment_count=Count("comments", distinct=True))
+        )
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        query = request.query_params.get("q")
+        if query:
+            qs = qs.filter(
+                Q(main_title__icontains=query)
+                | Q(sub_title__icontains=query)
+                | Q(frame_brand__icontains=query)
+                | Q(content_md__icontains=query)
+            )
+
+        ordering = request.query_params.get("ordering", "-updated_at")
+        allowed_ordering = {
+            "created_at",
+            "-created_at",
+            "updated_at",
+            "-updated_at",
+            "published_at",
+            "-published_at",
+        }
+        if ordering not in allowed_ordering:
+            ordering = "-updated_at"
+        qs = qs.order_by(ordering)
+
+        serializer = PostStudioSerializer(qs, many=True, context={"request": request})
+        return Response(serializer.data)
+
+    @extend_schema(tags=["Studio"], summary="게시글 생성(운영진)", request=PostWriteSerializer, responses=PostStudioSerializer)
+    def post(self, request) -> Response:
+        serializer = PostWriteSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        submission = serializer.validated_data.get("submission")
+        if submission and submission.status != SubmissionStatus.APPROVED:
+            raise ValidationError({"submission": "승인된 신청서만 게시글과 연결할 수 있습니다."})
+
+        staff = getattr(request.user, "staff_profile", None)
+        post = serializer.save(author=staff)
+
+        if post.sync_snapshots_from_submission(force=True):
+            post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
+
+        if post.status == PostStatus.PUBLISHED and post.bike_id:
+            post.bike.is_posted = True
+            post.bike.save(update_fields=["is_posted", "updated_at"])
+
+        return Response(PostStudioSerializer(post, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+
+class StudioPostDetailAPIView(views.APIView):
+    """운영진 전용 게시글 단건 조회/수정."""
+
+    permission_classes = [IsEditorOrAdmin]
+
+    def get_object(self, slug: str) -> Post:
+        return get_object_or_404(
+            Post.objects.select_related("author__user", "submission", "bike", "build", "rider")
+            .prefetch_related("tags", "images")
+            .annotate(comment_count=Count("comments", distinct=True)),
+            slug=slug,
+        )
+
+    def get(self, request, slug: str) -> Response:
+        post = self.get_object(slug)
+        serializer = PostStudioSerializer(post, context={"request": request})
+        return Response({"post": serializer.data})
+
+    def patch(self, request, slug: str) -> Response:
+        post = self.get_object(slug)
+        serializer = PostWriteSerializer(
+            post,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save()
+
+        if post.sync_snapshots_from_submission(force=False):
+            post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
+
+        submission = post.submission
+        if submission and submission.status != SubmissionStatus.APPROVED:
+            return Response(
+                {"submission": ["승인된 신청서만 게시글과 연결할 수 있습니다."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if post.status == PostStatus.PUBLISHED and post.bike_id:
+            post.bike.is_posted = True
+            post.bike.save(update_fields=["is_posted", "updated_at"])
+
+        return Response(PostStudioSerializer(post, context={"request": request}).data)
+
+    def delete(self, request, slug: str) -> Response:
+        post = self.get_object(slug)
+        post.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

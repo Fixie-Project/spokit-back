@@ -11,25 +11,9 @@ from app.bike.serializers import (
     BikeBuildWriteSerializer,
 )
 
-from .models import Submission, SubmissionImage, SubmissionRejectionReason
+from .models import Submission, SubmissionRejectionReason
 from .questions import load_question_set
 from .services import build_to_snapshot
-
-
-class SubmissionImageSerializer(serializers.ModelSerializer):
-    """신청서 이미지와 기본 메타데이터를 직렬화."""
-
-    class Meta:
-        model = SubmissionImage
-        fields = [
-            "id",
-            "url",
-            "purpose",
-            "order",
-            "caption",
-            "created_at",
-        ]
-        read_only_fields = ("id", "created_at")
 
 
 class StoryBlockSerializer(serializers.Serializer):
@@ -72,7 +56,6 @@ class SubmissionSerializer(serializers.ModelSerializer):
     build_snapshot = serializers.DictField(allow_empty=True, required=False)
     build_id = serializers.UUIDField(required=False, allow_null=True, write_only=True)
     new_build_payload = SubmissionNewBuildPayloadSerializer(required=False, write_only=True)
-    images = SubmissionImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Submission
@@ -91,7 +74,6 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "reason_detail",
             "created_at",
             "updated_at",
-            "images",
         ]
         read_only_fields = (
             "id",
@@ -101,7 +83,6 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "reason_detail",
             "created_at",
             "updated_at",
-            "images",
         )
         extra_kwargs = {
             "build_id": {"write_only": True},

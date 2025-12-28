@@ -229,3 +229,20 @@ class PostDetailSerializer(PostSerializer):
     class Meta(PostSerializer.Meta):
         fields = PostSerializer.Meta.fields + ["view_count"]
         read_only_fields = PostSerializer.Meta.read_only_fields + ("view_count",)
+
+
+class PostListSerializer(PostSerializer):
+    class Meta(PostSerializer.Meta):
+        fields = [
+            "id",
+            "author",
+            "main_title",
+            "sub_title",
+            "created_at",
+            "is_editor_pick",
+            "tags",
+            "like_count",
+            "comment_count",
+            "is_liked",
+        ]
+        read_only_fields = fields

@@ -16,7 +16,7 @@ from .serializers import (
     SubmissionRejectSerializer,
     SubmissionSerializer,
 )
-from .services import change_submission_status
+from .services import change_submission_status, ensure_post_for_submission
 
 
 class QuestionSetResponseSerializer(serializers.Serializer):
@@ -229,6 +229,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
             to_status=SubmissionStatus.APPROVED,
             actor=request.user,
         )
+        ensure_post_for_submission(submission, actor=request.user)
         serializer = self.get_serializer(submission)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

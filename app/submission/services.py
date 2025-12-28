@@ -5,6 +5,7 @@ from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils.text import slugify
 
 from app.bike.models import Bike, BikeBuild
 from app.user.models import Staff, User
@@ -15,8 +16,7 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     SubmissionStatus.DRAFT: {SubmissionStatus.SUBMITTED},
     SubmissionStatus.SUBMITTED: {SubmissionStatus.IN_REVIEW, SubmissionStatus.REJECTED},
     SubmissionStatus.IN_REVIEW: {SubmissionStatus.APPROVED, SubmissionStatus.REJECTED},
-    SubmissionStatus.APPROVED: {SubmissionStatus.POSTING, SubmissionStatus.REJECTED},
-    SubmissionStatus.POSTING: {SubmissionStatus.PUBLISHED, SubmissionStatus.REJECTED},
+    SubmissionStatus.APPROVED: set(),
     SubmissionStatus.REJECTED: {SubmissionStatus.RESUBMITTED},
     SubmissionStatus.RESUBMITTED: {SubmissionStatus.IN_REVIEW},
 }
@@ -133,3 +133,49 @@ def change_submission_status(
         SubmissionStatusLog.objects.create(**log_kwargs)
 
     return submission
+
+
+def ensure_post_for_submission(submission: Submission, *, actor: User):
+    """신청서로부터 게시글이 없으면 생성합니다."""
+
+    if submission.post_id:
+        return submission.post
+
+    if not submission.bike_id or not submission.build_id:
+        raise ValidationError({"submission": "게시글 생성에는 bike/build가 필요합니다."})
+
+    from app.post.models import Post, PostStatus
+
+    author_profile = getattr(actor, "staff_profile", None)
+
+    base_slug = slugify(submission.title) or f"submission-{submission.pk}"
+    slug = base_slug
+    suffix = 1
+    while Post.objects.filter(slug=slug).exists():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+    snapshot = submission.build_snapshot or {}
+    bike_snapshot = snapshot.get("bike", {}) if isinstance(snapshot, dict) else {}
+
+    frame_brand = bike_snapshot.get("frame_name") or getattr(submission.bike, "frame_name", "") or submission.title
+    frame_type = bike_snapshot.get("frame_type", "")
+
+    return Post.objects.create(
+        author=author_profile,
+        submission=submission,
+        bike=submission.bike,
+        build=submission.build,
+        build_snapshot=submission.build_snapshot or {},
+        story_snapshot=submission.story_blocks or [],
+        rider=submission.user,
+        main_title=submission.title,
+        sub_title=submission.title,
+        content_md="",
+        content_html="",
+        content_json={},
+        frame_brand=frame_brand,
+        frame_type=frame_type,
+        slug=slug,
+        status=PostStatus.DRAFT,
+    )
