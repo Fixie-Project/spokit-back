@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from django.conf import settings
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, permissions, status, views
@@ -11,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from app.core.responses import success_response
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.serializers import SubmissionSerializer
 
@@ -34,7 +36,13 @@ class UserSubmissionListAPIView(views.APIView):
             .order_by("-created_at")
         )
         serializer = SubmissionSerializer(submissions, many=True, context={"request": request})
-        return Response({"count": submissions.count(), "results": serializer.data})
+        return success_response(
+            "신청서를 조회했습니다.",
+            {
+                "count": submissions.count(),
+                "results": serializer.data,
+            },
+        )
 
 
 class UserSubmissionDetailAPIView(views.APIView):
@@ -47,7 +55,7 @@ class UserSubmissionDetailAPIView(views.APIView):
     def get(self, request, pk: str) -> Response:
         submission = self.get_object(request, pk)
         serializer = SubmissionSerializer(submission, context={"request": request})
-        return Response(serializer.data)
+        return success_response("신청서를 조회했습니다.", serializer.data)
 
     def patch(self, request, pk: str) -> Response:
         submission = self.get_object(request, pk)
@@ -59,7 +67,7 @@ class UserSubmissionDetailAPIView(views.APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return success_response("신청서를 수정했습니다.", serializer.data)
 
 
 class UserProfileSummaryAPIView(views.APIView):
@@ -68,14 +76,12 @@ class UserProfileSummaryAPIView(views.APIView):
 
     def get(self, request) -> Response:
         submissions = Submission.objects.filter(user=request.user)
-        stats = {
-            "total": submissions.count(),
-            "by_status": {
-                status: submissions.filter(status=status).count()
-                for status in SubmissionStatus.values
-            },
-        }
-        return Response(stats)
+        totals_by_status = {status: 0 for status in SubmissionStatus.values}
+        for row in submissions.values("status").annotate(count=Count("status")):
+            totals_by_status[row["status"]] = row["count"]
+
+        stats = {"total": submissions.count(), "by_status": totals_by_status}
+        return success_response("신청 상태 요약을 조회했습니다.", stats)
 
 
 class UserProfileAPIView(views.APIView):
@@ -86,7 +92,7 @@ class UserProfileAPIView(views.APIView):
     @extend_schema(responses=UserProfileSerializer, tags=["User"], summary="내 프로필 조회")
     def get(self, request) -> Response:
         serializer = UserProfileSerializer(request.user, context={"request": request})
-        return Response(serializer.data)
+        return success_response("프로필을 조회했습니다.", serializer.data)
 
     @extend_schema(
         request=UserProfileSerializer,
@@ -103,7 +109,7 @@ class UserProfileAPIView(views.APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return success_response("프로필을 수정했습니다.", serializer.data)
 
 
 class EmailTokenObtainPairAPIView(TokenObtainPairView):
@@ -171,7 +177,8 @@ class GoogleOAuthLoginAPIView(views.APIView):
         access_token["nickname"] = user.nickname
         access_token["role"] = user.role
 
-        return Response(
+        return success_response(
+            "로그인에 성공했습니다.",
             {
                 "refresh": str(refresh),
                 "access": str(access_token),
@@ -180,7 +187,7 @@ class GoogleOAuthLoginAPIView(views.APIView):
                 "role": user.role,
                 "is_new": created,
             },
-            status=status.HTTP_200_OK,
+            status_code=status.HTTP_200_OK,
         )
 
     def _generate_unique_nickname(self, base: str) -> str:
