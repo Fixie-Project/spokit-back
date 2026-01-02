@@ -238,6 +238,7 @@ class PostListSerializer(PostSerializer):
         fields = [
             "id",
             "author",
+            "slug",
             "main_title",
             "sub_title",
             "created_at",
@@ -248,3 +249,40 @@ class PostListSerializer(PostSerializer):
             "is_liked",
         ]
         read_only_fields = fields
+
+
+class MessageSerializer(serializers.Serializer):
+    """단순 메시지 래퍼."""
+
+    message = serializers.CharField()
+
+
+class PostListDataSerializer(serializers.Serializer):
+    """게시글 목록 data 영역."""
+
+    count = serializers.IntegerField()
+    results = PostListSerializer(many=True)
+
+
+class PostListResponseSerializer(MessageSerializer):
+    """게시글 목록 래퍼."""
+
+    data = PostListDataSerializer()
+
+
+class PostDetailResponseSerializer(MessageSerializer):
+    """게시글 단건 래퍼."""
+
+    data = PostDetailSerializer()
+
+
+class LikeToggleResponseSerializer(MessageSerializer):
+    """좋아요 토글 응답 래퍼."""
+
+    data = serializers.DictField()
+
+
+class CommentResponseSerializer(MessageSerializer):
+    """댓글 생성 응답 래퍼."""
+
+    data = CommentSerializer()

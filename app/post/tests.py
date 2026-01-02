@@ -50,6 +50,8 @@ class PostInteractionTests(TestCase):
         url = reverse("post:comment", kwargs={"slug": self.post.slug})
         response = self.client.post(url, data={"content": "좋은 빌드네요"}, follow=True)
         self.assertEqual(response.status_code, 201)
+        payload = response.json()["data"]
+        self.assertEqual(payload["content"], "좋은 빌드네요")
         self.assertTrue(
             Comment.objects.filter(post=self.post, user=self.user, content__contains="좋은").exists()
         )
@@ -68,13 +70,13 @@ class PostInteractionTests(TestCase):
         detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["view_count"], 1)
+        self.assertEqual(response.json()["data"]["view_count"], 1)
         self.post.refresh_from_db(fields=["view_count"])
         self.assertEqual(self.post.view_count, 1)
 
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["view_count"], 2)
+        self.assertEqual(response.json()["data"]["view_count"], 2)
         self.post.refresh_from_db(fields=["view_count"])
         self.assertEqual(self.post.view_count, 2)
 
@@ -84,7 +86,7 @@ class PostInteractionTests(TestCase):
 
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json()["data"]
         self.assertEqual(data["comment_count"], 1)
         self.assertFalse(data["is_liked"])
 
@@ -94,20 +96,20 @@ class PostInteractionTests(TestCase):
 
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json()["data"]
         self.assertEqual(data["comment_count"], 1)
         self.assertTrue(data["is_liked"])
 
     def test_editor_pick_flag_in_serializer(self) -> None:
         detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
         response = self.client.get(detail_url)
-        self.assertFalse(response.json()["is_editor_pick"])
+        self.assertFalse(response.json()["data"]["is_editor_pick"])
 
         self.post.is_editor_pick = True
         self.post.save(update_fields=["is_editor_pick"])
 
         response = self.client.get(detail_url)
-        self.assertTrue(response.json()["is_editor_pick"])
+        self.assertTrue(response.json()["data"]["is_editor_pick"])
 
     def test_post_search_query_filters_results(self) -> None:
         Post.objects.create(
@@ -128,9 +130,9 @@ class PostInteractionTests(TestCase):
 
         response = self.client.get("/api/posts/?q=첫")
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["slug"], self.post.slug)
+        data = response.json()["data"]
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["slug"], self.post.slug)
 
     def test_sync_snapshots_from_submission(self) -> None:
         submission = Submission.objects.create(

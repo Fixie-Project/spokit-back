@@ -7,6 +7,7 @@ from app.post.models import Post, PostStatus, PostImagePurpose
 from app.user.models import User
 from app.bike.models import BikeBuild
 from .models import BaseImage
+from rest_framework import serializers
 
 
 class BaseImageUploadSerializer(serializers.ModelSerializer):
@@ -86,3 +87,15 @@ class GlobalSearchResponseSerializer(serializers.Serializer):
     posts = PostSearchSerializer(many=True)
     riders = RiderSearchSerializer(many=True)
     builds = BuildSearchSerializer(many=True)
+
+
+class MessageSerializer(serializers.Serializer):
+    """통일된 메시지 래퍼."""
+
+    message = serializers.CharField()
+
+
+class GlobalSearchMessageSerializer(MessageSerializer):
+    """통합 검색 래퍼."""
+
+    data = GlobalSearchResponseSerializer()

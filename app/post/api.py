@@ -4,12 +4,13 @@ from __future__ import annotations
 from django.db.models import Count, F, Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, viewsets
-from rest_framework.response import Response
-
+from app.core.responses import success_response
 from .models import Post, PostStatus
 from .serializers import (
+    PostDetailResponseSerializer,
     PostDetailSerializer,
     PostListSerializer,
+    PostListResponseSerializer,
     PostSerializer,
 )
 
@@ -21,11 +22,13 @@ PUBLIC_TAG = "Public"
         tags=["Posts", PUBLIC_TAG],
         summary="게시글 목록 조회",
         description="발행된 게시글 목록을 반환합니다. 관리자는 모든 상태의 게시글을 확인할 수 있습니다.",
+        responses=PostListResponseSerializer,
     ),
     retrieve=extend_schema(
         tags=["Posts", PUBLIC_TAG],
         summary="특정 게시글 조회",
         description="게시글 상세 정보를 반환합니다. 비회원은 발행된 게시글만 조회할 수 있습니다.",
+        responses=PostDetailResponseSerializer,
     ),
 )
 class PostViewSet(
@@ -70,4 +73,12 @@ class PostViewSet(
             Post.objects.filter(pk=post.pk).update(view_count=F("view_count") + 1)
             post.view_count += 1
         serializer = self.get_serializer(post)
-        return Response(serializer.data)
+        return success_response("게시글을 조회했습니다.", serializer.data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(
+            "게시글 목록을 조회했습니다.",
+            {"count": queryset.count(), "results": serializer.data},
+        )

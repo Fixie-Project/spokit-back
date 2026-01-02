@@ -7,20 +7,19 @@ from io import BytesIO
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiExample
 from PIL import Image
 from rest_framework import permissions, status, views
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.response import Response
 
-from app.core.responses import error_response
+from app.core.responses import error_response, success_response
 from app.post.models import Post, PostImagePurpose, PostStatus
 from app.user.models import User
 from app.bike.models import BikeBuild
 from app.core.serializers import (
     BaseImageUploadSerializer,
     BuildSearchSerializer,
-    GlobalSearchResponseSerializer,
+    GlobalSearchMessageSerializer,
     PostSearchSerializer,
     RiderSearchSerializer,
 )
@@ -104,7 +103,45 @@ class GlobalSearchAPIView(views.APIView):
         tags=["Search"],
         summary="통합 검색 (메거진/라이더/아카이브)",
         parameters=[],
-        responses=GlobalSearchResponseSerializer,
+        responses=GlobalSearchMessageSerializer,
+        examples=[
+            OpenApiExample(
+                "Search response",
+                value={
+                    "message": "검색 결과를 조회했습니다.",
+                    "data": {
+                        "posts": [
+                            {
+                                "id": "uuid",
+                                "slug": "chrome-dreams",
+                                "main_title": "Chrome Dreams",
+                                "sub_title": "Cinelli Mash Histogram",
+                                "is_editor_pick": False,
+                                "image": {"url": "https://.../hero.jpg", "purpose": "header"},
+                            }
+                        ],
+                        "riders": [
+                            {
+                                "id": "uuid",
+                                "name": "스포킷 라이더",
+                                "intro": "서울 기반 픽서",
+                                "profile_image": {"url": "https://.../profile.jpg", "width": 400, "height": 400},
+                            }
+                        ],
+                        "builds": [
+                            {
+                                "id": "uuid",
+                                "title": "Neon Nights",
+                                "bike_frame": "Cinelli Tutto Plus",
+                                "is_public": True,
+                                "main_image": {"url": "https://.../main.jpg", "width": 800, "height": 600},
+                            }
+                        ],
+                    },
+                },
+                response_only=True,
+            )
+        ],
     )
     def get(self, request):
         keyword = request.query_params.get("q", "").strip()
@@ -150,4 +187,4 @@ class GlobalSearchAPIView(views.APIView):
             "riders": rider_data,
             "builds": build_data,
         }
-        return Response(payload)
+        return success_response("검색 결과를 조회했습니다.", payload)
