@@ -272,9 +272,6 @@ class BikeBuildDetailView(APIView):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        new_base = serializer.validated_data.get("base_bike", build.base_bike)
-        if new_base.owner_id != request.user.id:
-            raise PermissionDenied("본인 자전거 빌드만 수정할 수 있습니다.")
         serializer.save()
         return success_response(
             "자전거 빌드가 수정되었습니다.",

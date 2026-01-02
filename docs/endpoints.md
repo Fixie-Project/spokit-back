@@ -20,7 +20,7 @@
 
 ### 비로그인 접근 가능 API
 - `POST /api/auth/jwt/create/`, `POST /api/auth/jwt/refresh/`, `POST /api/auth/google/`
-- `GET /api/bikes/<uuid>/detail/` (공개 자전거만 조회 가능)
+- `GET /api/public/bikes/`
 - `GET /api/posts/`, `GET /api/posts/<slug>/`
 - `GET /api/question-set/`
 - `GET /api/schema/`, `/api/docs/`, `/api/redoc/`
@@ -41,8 +41,6 @@
 | GET | `/api/me/submissions/` | 로그인 | 내 신청서 목록 (`count`, `results`) |
 | GET | `/api/me/submissions/<uuid>/` | 로그인 | 내 신청서 상세 |
 | PATCH | `/api/me/submissions/<uuid>/` | 로그인 | 내 신청서 부분 수정 |
-
-- `/api/me/submissios/` 는 `/api/me/submissions/` 의 오타 호환 라우트입니다.
 
 ---
 
@@ -251,5 +249,12 @@
 | `GET /api/redoc/` | ReDoc 문서 |
 
 ---
+
+## 9. 통합 검색
+- `GET /api/search/?q=<keyword>&limit=<n>` (누구나)
+  - 카테고리별 최대 `limit`개(기본 5, 1~20) 반환
+  - posts: 발행된 메거진 글만 (`id`, `slug`, `main_title`, `sub_title`, `is_editor_pick`, `image`)
+  - riders: 활성 사용자 (`id`, `name`, `intro`, `profile_image`)
+  - builds: 공개 아카이브 빌드 (`id`, `title`, `bike_frame`, `is_public`, `main_image`)
 
 최근 업데이트: 2025-12-27

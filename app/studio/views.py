@@ -108,7 +108,11 @@ class StudioSubmissionListAPIView(views.APIView):
 
     permission_classes = [IsStaffUser]
 
-    @extend_schema(tags=["Studio"], summary="신청서 목록(운영진)")
+    @extend_schema(
+        tags=["Studio"],
+        summary="신청서 목록(운영진)",
+        responses=SubmissionPreviewSerializer,
+    )
     def get(self, request) -> Response:
         status_filter = request.query_params.get("status")
         qs = Submission.objects.select_related("user", "bike", "build").prefetch_related("images")

@@ -170,6 +170,10 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
 
     def update(self, instance: BikeBuild, validated_data):
         images = validated_data.pop("images", None)
+        if "base_bike" in validated_data:
+            raise serializers.ValidationError(
+                {"base_bike": "기존 빌드의 프레임은 변경할 수 없습니다. 새 빌드를 생성해 주세요."}
+            )
         build = super().update(instance, validated_data)
         if images is not None:
             self._set_images(build, images)

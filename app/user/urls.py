@@ -20,7 +20,6 @@ urlpatterns = [
     
     # 본인 신청서 엔드포인트
     path("me/submissions/", views.UserSubmissionListAPIView.as_view(), name="submissions"),
-    path("me/submissios/", views.UserSubmissionListAPIView.as_view(), name="submissions-legacy"),
     path("me/submissions/<uuid:pk>/", views.UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
     
     # (이전 경로는 app.bike.urls 로 이동)

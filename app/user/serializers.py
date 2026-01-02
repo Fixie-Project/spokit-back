@@ -4,8 +4,7 @@ from __future__ import annotations
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import User
-from .models import Staff
+from .models import Staff, User
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -101,3 +100,18 @@ class StaffSerializer(serializers.ModelSerializer):
             setattr(instance, field, value)
         instance.save()
         return instance
+
+
+class AuthorPublicSerializer(serializers.ModelSerializer):
+    """포스트 등 공개 영역에 노출되는 작성자 요약 정보."""
+
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "profile_image", "name", "intro"]
+        read_only_fields = fields
+
+    def get_name(self, obj: User) -> str:
+        # prefer nickname, fallback to username
+        return obj.nickname or obj.username

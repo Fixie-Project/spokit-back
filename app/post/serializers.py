@@ -7,6 +7,7 @@ from app.core.models import BaseImage
 
 from app.bike.serializers import BikeSerializer, BikeBuildSerializer
 from app.submission.models import Submission
+from app.user.serializers import AuthorPublicSerializer
 
 from .models import Comment, Post, PostImage, PostImagePurpose, PostStatus, Tag
 
@@ -59,6 +60,7 @@ class PostImageWriteSerializer(serializers.Serializer):
 class PostSerializer(serializers.ModelSerializer):
     """게시글을 조회할 때 필요한 상세 정보를 제공."""
 
+    author = AuthorPublicSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     like_count = serializers.IntegerField(source="likes.count", read_only=True)
     comment_count = serializers.SerializerMethodField()

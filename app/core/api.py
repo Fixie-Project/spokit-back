@@ -6,6 +6,7 @@ from io import BytesIO
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import models
 from drf_spectacular.utils import extend_schema
 from PIL import Image
 from rest_framework import permissions, status, views
@@ -13,8 +14,18 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from app.core.responses import error_response
+from app.post.models import Post, PostImagePurpose, PostStatus
+from app.user.models import User
+from app.bike.models import BikeBuild
+from app.core.serializers import (
+    BaseImageUploadSerializer,
+    BuildSearchSerializer,
+    GlobalSearchResponseSerializer,
+    PostSearchSerializer,
+    RiderSearchSerializer,
+)
 
-from .serializers import BaseImageUploadSerializer
+SEARCH_DEFAULT_LIMIT = 5
 
 
 class BaseImageUploadView(views.APIView):
@@ -82,3 +93,61 @@ class BaseImageFileUploadView(views.APIView):
             filesize=upload.size,
         )
         return Response(BaseImageUploadSerializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class GlobalSearchAPIView(views.APIView):
+    """메거진/라이더/아카이브 통합 검색."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        tags=["Search"],
+        summary="통합 검색 (메거진/라이더/아카이브)",
+        parameters=[],
+        responses=GlobalSearchResponseSerializer,
+    )
+    def get(self, request):
+        keyword = request.query_params.get("q", "").strip()
+        if not keyword:
+            return error_response("q 파라미터를 입력해 주세요.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", SEARCH_DEFAULT_LIMIT))
+        except (TypeError, ValueError):
+            limit = SEARCH_DEFAULT_LIMIT
+        limit = max(1, min(limit, 20))
+
+        # Posts (magazine)
+        posts = (
+            Post.objects.filter(status=PostStatus.PUBLISHED)
+            .filter(
+                models.Q(main_title__icontains=keyword)
+                | models.Q(sub_title__icontains=keyword)
+                | models.Q(frame_brand__icontains=keyword)
+            )
+            .prefetch_related("images")[:limit]
+        )
+        post_data = PostSearchSerializer(posts, many=True).data
+
+        # Riders (users)
+        riders = (
+            User.objects.filter(is_active=True)
+            .filter(models.Q(nickname__icontains=keyword) | models.Q(username__icontains=keyword))
+            .select_related("profile_image")[:limit]
+        )
+        rider_data = RiderSearchSerializer(riders, many=True).data
+
+        # Builds (archive)
+        builds = (
+            BikeBuild.objects.filter(is_public=True, base_bike__is_public=True)
+            .filter(models.Q(title__icontains=keyword) | models.Q(base_bike__frame_name__icontains=keyword))
+            .select_related("base_bike", "main_image")[:limit]
+        )
+        build_data = BuildSearchSerializer(builds, many=True).data
+
+        payload = {
+            "posts": post_data,
+            "riders": rider_data,
+            "builds": build_data,
+        }
+        return Response(payload)
