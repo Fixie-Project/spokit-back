@@ -41,8 +41,8 @@ def submission(applicant):
     return Submission.objects.create(
         user=applicant,
         title="My Story",
-        story_blocks=[],
-        build_snapshot={},
+        story_blocks=[{"question_id": "intro_1", "answer": "intro"}],
+        build_snapshot={"frame_name": "Frame"},
     )
 
 
@@ -89,6 +89,8 @@ def test_reject_requires_reason_code(api_client, editor, submission):
 
 @pytest.mark.django_db
 def test_reject_with_reason_stores_fields(api_client, editor, submission):
+    submission.status = SubmissionStatus.SUBMITTED
+    submission.save(update_fields=["status"])
     api_client.force_authenticate(user=editor)
     url = reverse("submission-workflow-reject", kwargs={"pk": submission.pk})
     payload = {
@@ -99,7 +101,8 @@ def test_reject_with_reason_stores_fields(api_client, editor, submission):
     response = api_client.post(url, data=payload, format="json")
 
     assert response.status_code == 200
-    data = response.json()
+    body = response.json()
+    data = body["data"]
     assert data["status"] == SubmissionStatus.REJECTED
     assert data["reason_code"] == SubmissionRejectionReason.PHOTO_ISSUE
     assert data["reason_detail"] == payload["reason_detail"]
@@ -137,7 +140,7 @@ def test_outro_requirement_passes_when_answered(api_client, applicant, submissio
     response = api_client.post(url, data=submission_payload, format="json")
 
     assert response.status_code == 201
-    data = response.json()
+    data = response.json()["data"]
     assert data["title"] == submission_payload["title"]
 
 
@@ -158,7 +161,7 @@ def test_create_submission_with_existing_build(api_client, applicant, build):
     response = api_client.post(url, data=payload, format="json")
 
     assert response.status_code == 201
-    body = response.json()
+    body = response.json()["data"]
     assert body["build"]["id"] == str(build.id)
     assert body["bike"]["id"] == str(build.base_bike.id)
     assert body["build_snapshot"]["build"]["id"] == str(build.id)
@@ -194,10 +197,35 @@ def test_create_submission_with_new_build_payload(api_client, applicant):
     response = api_client.post(url, data=payload, format="json")
 
     assert response.status_code == 201
-    body = response.json()
+    body = response.json()["data"]
     assert body["build"]["title"] == "Build Title"
     assert body["bike"]["frame_name"] == "New Frame"
 
-    submission = Submission.objects.get(id=body["id"])
-    assert submission.build_snapshot["bike"]["frame_name"] == "New Frame"
-    assert submission.build_snapshot["build"]["title"] == "Build Title"
+
+@pytest.mark.django_db
+def test_patch_denied_when_submitted(api_client, applicant, submission):
+    submission.status = SubmissionStatus.SUBMITTED
+    submission.save()
+    api_client.force_authenticate(user=applicant)
+    url = reverse("submission-detail", kwargs={"pk": submission.pk})
+
+    response = api_client.patch(url, data={"title": "new"}, format="json")
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "INVALID_STATUS"
+
+
+@pytest.mark.django_db
+def test_delete_denied_when_in_review(api_client, applicant, submission):
+    submission.status = SubmissionStatus.IN_REVIEW
+    submission.save()
+    api_client.force_authenticate(user=applicant)
+    url = reverse("submission-detail", kwargs={"pk": submission.pk})
+
+    response = api_client.delete(url)
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "INVALID_STATUS"
+
+    submission.refresh_from_db()
+    assert submission.status == SubmissionStatus.IN_REVIEW

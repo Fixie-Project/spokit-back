@@ -22,6 +22,8 @@ from .serializers import (
 )
 from .services import change_submission_status, ensure_post_for_submission
 
+EDITABLE_STATUSES = {SubmissionStatus.DRAFT, SubmissionStatus.REJECTED}
+DELETABLE_STATUSES = {SubmissionStatus.DRAFT, SubmissionStatus.REJECTED}
 
 def _submission_examples():
     return [
@@ -157,9 +159,9 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.status not in {SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED}:
+        if instance.status not in EDITABLE_STATUSES:
             return error_response(
-                "초안(draft) 또는 접수(submitted) 상태에서만 수정할 수 있습니다.",
+                "초안(draft) 또는 반려(rejected) 상태에서만 수정할 수 있습니다. 다른 상태는 관리자에게 문의해 주세요.",
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="INVALID_STATUS",
             )
@@ -174,6 +176,12 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        if instance.status not in DELETABLE_STATUSES:
+            return error_response(
+                "초안(draft) 또는 반려(rejected) 상태에서만 삭제할 수 있습니다. 다른 상태는 관리자에게 문의해 주세요.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="INVALID_STATUS",
+            )
         self.perform_destroy(instance)
         return success_response("신청서를 삭제했습니다.")
 
@@ -183,6 +191,16 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         description="초안 상태의 신청서를 접수 상태로 전환합니다.",
         request=None,
         responses=SubmissionDetailResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Submit response",
+                value={
+                    "message": "신청서를 접수 상태로 전환했습니다.",
+                    "data": {"id": "uuid", "status": "submitted"},
+                },
+                response_only=True,
+            )
+        ],
     )
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def submit(self, request, pk=None):
@@ -203,6 +221,16 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         description="반려된 신청서를 수정 후 재신청합니다.",
         request=SubmissionCommentSerializer,
         responses=SubmissionDetailResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Resubmit response",
+                value={
+                    "message": "신청서를 재접수했습니다.",
+                    "data": {"id": "uuid", "status": "resubmitted"},
+                },
+                response_only=True,
+            )
+        ],
     )
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def resubmit(self, request, pk=None):
@@ -242,6 +270,16 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         description="운영진이 신청서를 검토중 상태로 전환합니다.",
         request=None,
         responses=SubmissionDetailResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Review response",
+                value={
+                    "message": "신청서를 검토 상태로 전환했습니다.",
+                    "data": {"id": "uuid", "status": "in_review"},
+                },
+                response_only=True,
+            )
+        ],
     )
     @action(detail=True, methods=["post"], permission_classes=[IsStaffUser])
     def review(self, request, pk=None):
@@ -260,6 +298,16 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         description="에디터/관리자가 신청서를 승인 상태로 전환합니다.",
         request=None,
         responses=SubmissionDetailResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Approve response",
+                value={
+                    "message": "신청서를 승인했습니다.",
+                    "data": {"id": "uuid", "status": "approved"},
+                },
+                response_only=True,
+            )
+        ],
     )
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def approve(self, request, pk=None):
@@ -279,6 +327,21 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         description="운영진이 신청서를 반려하고 사유를 기록합니다.",
         request=SubmissionRejectSerializer,
         responses=SubmissionDetailResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Reject response",
+                value={
+                    "message": "신청서를 반려했습니다.",
+                    "data": {
+                        "id": "uuid",
+                        "status": "rejected",
+                        "reason_code": "photo_issue",
+                        "reason_detail": "이미지 해상도가 낮습니다.",
+                    },
+                },
+                response_only=True,
+            )
+        ],
     )
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def reject(self, request, pk=None):
@@ -393,9 +456,9 @@ class UserSubmissionDetailAPIView(APIView):
     @extend_schema(tags=["Submissions"], summary="내 신청 수정", responses=SubmissionDetailResponseSerializer)
     def patch(self, request, pk: str):
         submission = get_object_or_404(Submission, pk=pk, user=request.user)
-        if submission.status not in {SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED}:
+        if submission.status not in EDITABLE_STATUSES:
             return error_response(
-                "초안(draft) 또는 접수(submitted) 상태에서만 수정할 수 있습니다.",
+                "초안(draft) 또는 반려(rejected) 상태에서만 수정할 수 있습니다. 다른 상태는 관리자에게 문의해 주세요.",
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="INVALID_STATUS",
             )

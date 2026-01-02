@@ -64,7 +64,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "user",
             "bike",
             "build",
-            "tit    le",
+            "title",
             "build_snapshot",
             "story_blocks",
             "build_id",
