@@ -64,7 +64,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "user",
             "bike",
             "build",
-            "title",
+            "tit    le",
             "build_snapshot",
             "story_blocks",
             "build_id",
@@ -191,3 +191,52 @@ class SubmissionRejectSerializer(serializers.Serializer):
 
     reason_code = serializers.ChoiceField(choices=SubmissionRejectionReason.choices, required=True)
     reason_detail = serializers.CharField(required=False, allow_blank=True)
+
+
+class MessageSerializer(serializers.Serializer):
+    """단순 메시지 래퍼."""
+
+    message = serializers.CharField()
+
+
+class SubmissionListDataSerializer(serializers.Serializer):
+    """신청서 목록 응답의 data 영역."""
+
+    count = serializers.IntegerField()
+    results = SubmissionSerializer(many=True)
+
+
+class SubmissionListResponseSerializer(MessageSerializer):
+    """신청서 목록 래퍼."""
+
+    data = SubmissionListDataSerializer()
+
+
+class SubmissionDetailResponseSerializer(MessageSerializer):
+    """단일 신청서 래퍼."""
+
+    data = SubmissionSerializer()
+
+
+class QuestionSetResponseSerializer(serializers.Serializer):
+    """질문 세트 응답 데이터."""
+
+    version = serializers.CharField()
+    title = serializers.CharField(required=False)
+    subtitle = serializers.CharField(required=False)
+    group_labels = serializers.DictField(child=serializers.CharField())
+    sections = serializers.DictField(child=serializers.DictField(), required=False)
+    cta = serializers.DictField(required=False)
+    helper = serializers.DictField(required=False)
+    share = serializers.DictField(required=False)
+    non_selectable_groups = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
+    groups = serializers.DictField(child=serializers.ListField(child=serializers.DictField()))
+    required_ids = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class QuestionSetMessageSerializer(MessageSerializer):
+    """질문 세트 래퍼."""
+
+    data = QuestionSetResponseSerializer()

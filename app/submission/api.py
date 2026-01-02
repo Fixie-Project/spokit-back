@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample
-from rest_framework import permissions, serializers, status, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 
@@ -13,27 +13,14 @@ from app.user.permissions import IsEditorOrAdmin, IsStaffUser
 from .models import Submission, SubmissionStatus
 from .questions import DEFAULT_QUESTION_VERSION, load_question_set
 from .serializers import (
+    QuestionSetMessageSerializer,
     SubmissionCommentSerializer,
+    SubmissionDetailResponseSerializer,
+    SubmissionListResponseSerializer,
     SubmissionRejectSerializer,
     SubmissionSerializer,
 )
 from .services import change_submission_status, ensure_post_for_submission
-
-
-class QuestionSetResponseSerializer(serializers.Serializer):
-    version = serializers.CharField()
-    title = serializers.CharField(required=False)
-    subtitle = serializers.CharField(required=False)
-    group_labels = serializers.DictField(child=serializers.CharField())
-    sections = serializers.DictField(child=serializers.DictField(), required=False)
-    cta = serializers.DictField(required=False)
-    helper = serializers.DictField(required=False)
-    share = serializers.DictField(required=False)
-    non_selectable_groups = serializers.ListField(
-        child=serializers.CharField(), required=False
-    )
-    groups = serializers.DictField(child=serializers.ListField(child=serializers.DictField()))
-    required_ids = serializers.ListField(child=serializers.CharField(), required=False)
 
 
 def _submission_examples():
@@ -103,22 +90,26 @@ def _submission_examples():
         tags=["Submissions"],
         summary="소개 신청 목록 조회",
         examples=_submission_examples(),
+        responses=SubmissionListResponseSerializer,
     ),
     retrieve=extend_schema(
         tags=["Submissions"],
         summary="소개 신청 상세 조회",
         examples=_submission_examples(),
+        responses=SubmissionDetailResponseSerializer,
     ),
     create=extend_schema(
         tags=["Submissions"],
         summary="소개 신청 생성",
         examples=_submission_examples(),
+        responses=SubmissionDetailResponseSerializer,
     ),
     update=extend_schema(exclude=True),
     partial_update=extend_schema(
         tags=["Submissions"],
         summary="소개 신청 부분 수정",
         examples=_submission_examples(),
+        responses=SubmissionDetailResponseSerializer,
     ),
     destroy=extend_schema(tags=["Submissions"], summary="소개 신청 삭제"),
 )
@@ -191,7 +182,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         summary="신청서 제출",
         description="초안 상태의 신청서를 접수 상태로 전환합니다.",
         request=None,
-        responses=SubmissionSerializer,
+        responses=SubmissionDetailResponseSerializer,
     )
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def submit(self, request, pk=None):
@@ -211,7 +202,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         summary="재신청",
         description="반려된 신청서를 수정 후 재신청합니다.",
         request=SubmissionCommentSerializer,
-        responses=SubmissionSerializer,
+        responses=SubmissionDetailResponseSerializer,
     )
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def resubmit(self, request, pk=None):
@@ -250,7 +241,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         summary="검토 상태로 전환",
         description="운영진이 신청서를 검토중 상태로 전환합니다.",
         request=None,
-        responses=SubmissionSerializer,
+        responses=SubmissionDetailResponseSerializer,
     )
     @action(detail=True, methods=["post"], permission_classes=[IsStaffUser])
     def review(self, request, pk=None):
@@ -268,7 +259,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         summary="신청서 승인",
         description="에디터/관리자가 신청서를 승인 상태로 전환합니다.",
         request=None,
-        responses=SubmissionSerializer,
+        responses=SubmissionDetailResponseSerializer,
     )
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def approve(self, request, pk=None):
@@ -287,7 +278,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         summary="신청서 반려",
         description="운영진이 신청서를 반려하고 사유를 기록합니다.",
         request=SubmissionRejectSerializer,
-        responses=SubmissionSerializer,
+        responses=SubmissionDetailResponseSerializer,
     )
     @action(detail=True, methods=["post"], permission_classes=[IsEditorOrAdmin])
     def reject(self, request, pk=None):
@@ -316,7 +307,7 @@ class QuestionSetView(APIView):
     @extend_schema(
         tags=["Submissions"],
         summary="질문 세트 조회",
-        responses=QuestionSetResponseSerializer,
+        responses=QuestionSetMessageSerializer,
         examples=[
             OpenApiExample(
                 name="Question set",
@@ -366,7 +357,11 @@ class UserSubmissionListAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(tags=["Submissions"], summary="내 신청 목록 조회", responses=SubmissionSerializer(many=True))
+    @extend_schema(
+        tags=["Submissions"],
+        summary="내 신청 목록 조회",
+        responses=SubmissionListResponseSerializer,
+    )
     def get(self, request):
         submissions = (
             Submission.objects.filter(user=request.user)
@@ -389,13 +384,13 @@ class UserSubmissionDetailAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(tags=["Submissions"], summary="내 신청 상세", responses=SubmissionSerializer)
+    @extend_schema(tags=["Submissions"], summary="내 신청 상세", responses=SubmissionDetailResponseSerializer)
     def get(self, request, pk: str):
         submission = get_object_or_404(Submission, pk=pk, user=request.user)
         serializer = SubmissionSerializer(submission, context={"request": request})
         return success_response("신청서를 조회했습니다.", serializer.data)
 
-    @extend_schema(tags=["Submissions"], summary="내 신청 수정", responses=SubmissionSerializer)
+    @extend_schema(tags=["Submissions"], summary="내 신청 수정", responses=SubmissionDetailResponseSerializer)
     def patch(self, request, pk: str):
         submission = get_object_or_404(Submission, pk=pk, user=request.user)
         if submission.status not in {SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED}:
