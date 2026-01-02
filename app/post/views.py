@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from drf_spectacular.utils import OpenApiExample, extend_schema
 
-from app.core.responses import success_response
+from app.core.responses import error_response, success_response
 from .models import Comment, Like, Post, PostStatus
 from .serializers import CommentResponseSerializer, LikeToggleResponseSerializer
 
@@ -100,6 +100,82 @@ class CommentCreateAPIView(views.APIView):
             CommentCreateSerializer(comment).data,
             status_code=status.HTTP_201_CREATED,
         )
+
+
+class CommentDetailAPIView(views.APIView):
+    """본인 댓글 수정/삭제 API."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_object(self, request, slug: str, comment_id: str) -> Comment:
+        post_qs = Post.objects.all()
+        if not request.user.is_staff:
+            post_qs = post_qs.filter(status=PostStatus.PUBLISHED)
+        post = get_object_or_404(post_qs, slug=slug)
+        comment = get_object_or_404(Comment, pk=comment_id, post=post)
+        return comment
+
+    def _check_owner(self, request, comment: Comment):
+        if comment.user_id != request.user.id:
+            return error_response(
+                "본인 댓글만 수정/삭제할 수 있습니다.",
+                status_code=status.HTTP_403_FORBIDDEN,
+                code="FORBIDDEN",
+            )
+        return None
+
+    @extend_schema(
+        tags=["Posts"],
+        summary="댓글 수정",
+        request=CommentCreateSerializer,
+        responses=CommentResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Comment update response",
+                value={
+                    "message": "댓글을 수정했습니다.",
+                    "data": {
+                        "id": "uuid",
+                        "content": "수정된 댓글",
+                        "created_at": "2025-01-01T12:00:00Z",
+                    },
+                },
+                response_only=True,
+            )
+        ],
+    )
+    def patch(self, request, slug: str, comment_id: str) -> Response:
+        comment = self._get_object(request, slug, comment_id)
+        maybe_error = self._check_owner(request, comment)
+        if maybe_error:
+            return maybe_error
+        serializer = CommentCreateSerializer(comment, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("댓글을 수정했습니다.", serializer.data)
+
+    @extend_schema(
+        tags=["Posts"],
+        summary="댓글 삭제",
+        responses=CommentResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Comment delete response",
+                value={
+                    "message": "댓글을 삭제했습니다.",
+                    "data": None,
+                },
+                response_only=True,
+            )
+        ],
+    )
+    def delete(self, request, slug: str, comment_id: str) -> Response:
+        comment = self._get_object(request, slug, comment_id)
+        maybe_error = self._check_owner(request, comment)
+        if maybe_error:
+            return maybe_error
+        comment.delete()
+        return success_response("댓글을 삭제했습니다.")
 
 
 # class GearCalculatorAPIView(views.APIView):

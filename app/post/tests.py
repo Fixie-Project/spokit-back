@@ -56,6 +56,22 @@ class PostInteractionTests(TestCase):
             Comment.objects.filter(post=self.post, user=self.user, content__contains="좋은").exists()
         )
 
+    def test_comment_edit_and_delete_only_owner(self) -> None:
+        self.client.login(username="tester@example.com", password="secret123")
+        create_url = reverse("post:comment", kwargs={"slug": self.post.slug})
+        response = self.client.post(create_url, data={"content": "원글"})
+        comment_id = response.json()["data"]["id"]
+
+        patch_url = reverse("post:comment-detail", kwargs={"slug": self.post.slug, "comment_id": comment_id})
+        response = self.client.patch(patch_url, data={"content": "수정"}, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["content"], "수정")
+
+        delete_url = patch_url
+        response = self.client.delete(delete_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Comment.objects.filter(id=comment_id).exists())
+
     def test_like_toggle(self) -> None:
         self.client.login(username="tester@example.com", password="secret123")
         url = reverse("post:like", kwargs={"slug": self.post.slug})
