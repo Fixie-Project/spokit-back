@@ -5,8 +5,7 @@ import re
 
 from django.conf import settings
 from django.db.models import Count
-from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiExample, extend_schema
 from rest_framework import exceptions, permissions, status, views
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -14,7 +13,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from app.core.responses import success_response
 from app.submission.models import Submission, SubmissionStatus
-from app.submission.serializers import SubmissionSerializer
 
 from .models import User, UserRole
 from .serializers import (
@@ -22,52 +20,6 @@ from .serializers import (
     GoogleOAuthSerializer,
     UserProfileSerializer,
 )
-
-
-class UserSubmissionListAPIView(views.APIView):
-    """로그인 사용자의 신청 목록을 반환합니다."""
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request) -> Response:
-        submissions = (
-            Submission.objects.filter(user=request.user)
-            .select_related("bike", "build")
-            .prefetch_related("images")
-            .order_by("-created_at")
-        )
-        serializer = SubmissionSerializer(submissions, many=True, context={"request": request})
-        return success_response(
-            "신청서를 조회했습니다.",
-            {
-                "count": submissions.count(),
-                "results": serializer.data,
-            },
-        )
-
-
-class UserSubmissionDetailAPIView(views.APIView):
-    """특정 신청을 조회하거나 수정합니다."""
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_object(self, request, pk: str) -> Submission:
-        return get_object_or_404(Submission, pk=pk, user=request.user)
-
-    def get(self, request, pk: str) -> Response:
-        submission = self.get_object(request, pk)
-        serializer = SubmissionSerializer(submission, context={"request": request})
-        return success_response("신청서를 조회했습니다.", serializer.data)
-
-    def patch(self, request, pk: str) -> Response:
-        submission = self.get_object(request, pk)
-        serializer = SubmissionSerializer(
-            submission,
-            data=request.data,
-            partial=True,
-            context={"request": request},
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return success_response("신청서를 수정했습니다.", serializer.data)
 
 
 class UserProfileSummaryAPIView(views.APIView):
@@ -89,7 +41,31 @@ class UserProfileAPIView(views.APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=UserProfileSerializer, tags=["User"], summary="내 프로필 조회")
+    @extend_schema(
+        responses=UserProfileSerializer,
+        tags=["User"],
+        summary="내 프로필 조회",
+        examples=[
+            OpenApiExample(
+                "응답 예시",
+                value={
+                    "message": "프로필을 조회했습니다.",
+                    "data": {
+                        "id": "a9a5f50e-6f82-4b65-8d2b-fc36bd2f2c1d",
+                        "email": "user@example.com",
+                        "username": "spokit_user",
+                        "is_username_public": False,
+                        "nickname": "스포킷",
+                        "region": "Seoul",
+                        "intro": "트랙바이크 타는 라이더입니다.",
+                        "sns_link": "https://instagram.com/spokit",
+                        "profile_image": None,
+                    },
+                },
+                response_only=True,
+            ),
+        ],
+    )
     def get(self, request) -> Response:
         serializer = UserProfileSerializer(request.user, context={"request": request})
         return success_response("프로필을 조회했습니다.", serializer.data)
@@ -99,6 +75,36 @@ class UserProfileAPIView(views.APIView):
         responses=UserProfileSerializer,
         tags=["User"],
         summary="내 프로필 수정",
+        examples=[
+            OpenApiExample(
+                "요청 예시",
+                value={
+                    "nickname": "새닉네임",
+                    "region": "Seoul",
+                    "intro": "트랙바이크 타는 라이더입니다.",
+                    "sns_link": "https://instagram.com/spokit",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "응답 예시",
+                value={
+                    "message": "프로필을 수정했습니다.",
+                    "data": {
+                        "id": "a9a5f50e-6f82-4b65-8d2b-fc36bd2f2c1d",
+                        "email": "user@example.com",
+                        "username": "spokit_user",
+                        "is_username_public": False,
+                        "nickname": "새닉네임",
+                        "region": "Seoul",
+                        "intro": "트랙바이크 타는 라이더입니다.",
+                        "sns_link": "https://instagram.com/spokit",
+                        "profile_image": None,
+                    },
+                },
+                response_only=True,
+            ),
+        ],
     )
     def patch(self, request) -> Response:
         serializer = UserProfileSerializer(

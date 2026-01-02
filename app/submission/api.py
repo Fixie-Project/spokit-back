@@ -1,12 +1,13 @@
-"""소개 신청 관련 API 뷰셋입니다."""
+"""소개 신청 관련 API 뷰셋 및 유틸 뷰."""
 from __future__ import annotations
 
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app.core.responses import error_response, success_response
 from app.user.permissions import IsEditorOrAdmin, IsStaffUser
 
 from .models import Submission, SubmissionStatus
@@ -64,30 +65,33 @@ def _submission_examples():
         OpenApiExample(
             name="Submission response",
             value={
-                "id": "b8d2f8ab-2d8a-4c97-b6c3-1b9f9d6fb112",
-                "title": "Midnight Track Build",
-                "story_blocks": [
-                    {
-                        "question_id": "intro_1",
-                        "question_text": "픽시를 처음 타게 된 계기나, 이 문화에 끌리게 된 이유가 있나요?",
-                        "answer": "트랙 레이스를 보고 시작했습니다.",
-                        "images": ["https://cdn.spokit.co/submissions/123/intro.jpg"]
+                "message": "신청서를 조회했습니다.",
+                "data": {
+                    "id": "b8d2f8ab-2d8a-4c97-b6c3-1b9f9d6fb112",
+                    "title": "Midnight Track Build",
+                    "story_blocks": [
+                        {
+                            "question_id": "intro_1",
+                            "question_text": "픽시를 처음 타게 된 계기나, 이 문화에 끌리게 된 이유가 있나요?",
+                            "answer": "트랙 레이스를 보고 시작했습니다.",
+                            "images": ["https://cdn.spokit.co/submissions/123/intro.jpg"]
+                        },
+                        {
+                            "question_id": "final_1",
+                            "question_text": "마지막으로, 당신의 스포킷은 무엇인가요?",
+                            "answer": "밤을 가르는 한 줄기 빛",
+                            "images": []
+                        }
+                    ],
+                    "build_snapshot": {
+                        "frame_name": "Midnight Run",
                     },
-                    {
-                        "question_id": "final_1",
-                        "question_text": "마지막으로, 당신의 스포킷은 무엇인가요?",
-                        "answer": "밤을 가르는 한 줄기 빛",
-                        "images": []
-                    }
-                ],
-                "build_snapshot": {
-                    "frame_name": "Midnight Run",
+                    "status": "submitted",
+                    "reason_code": None,
+                    "reason_detail": "",
+                    "created_at": "2025-05-01T21:05:11Z",
+                    "updated_at": "2025-05-10T11:22:33Z",
                 },
-                "status": "submitted",
-                "reason_code": None,
-                "reason_detail": "",
-                "created_at": "2025-05-01T21:05:11Z",
-                "updated_at": "2025-05-10T11:22:33Z",
             },
             response_only=True,
         ),
@@ -137,6 +141,51 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(
+            "신청서를 조회했습니다.",
+            {"count": queryset.count(), "results": serializer.data},
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response("신청서를 조회했습니다.", serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return success_response(
+            "신청서를 등록했습니다.",
+            serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status not in {SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED}:
+            return error_response(
+                "초안(draft) 또는 접수(submitted) 상태에서만 수정할 수 있습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="INVALID_STATUS",
+            )
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return success_response("신청서를 수정했습니다.", serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return success_response("신청서를 삭제했습니다.")
+
     @extend_schema(
         tags=["Submissions"],
         summary="신청서 제출",
@@ -152,9 +201,9 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             to_status=SubmissionStatus.SUBMITTED,
             actor=request.user,
         )
-        return Response(
+        return success_response(
+            "신청서를 접수 상태로 전환했습니다.",
             SubmissionSerializer(submission, context={"request": request}).data,
-            status=status.HTTP_200_OK,
         )
 
     @extend_schema(
@@ -175,9 +224,9 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             actor=request.user,
             comment=payload.validated_data.get("comment", ""),
         )
-        return Response(
+        return success_response(
+            "신청서를 재접수했습니다.",
             SubmissionSerializer(submission, context={"request": request}).data,
-            status=status.HTTP_200_OK,
         )
 
 
@@ -212,7 +261,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
             actor=request.user,
         )
         serializer = self.get_serializer(submission)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return success_response("신청서를 검토 상태로 전환했습니다.", serializer.data)
 
     @extend_schema(
         tags=["Submission Moderation"],
@@ -231,7 +280,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
         )
         ensure_post_for_submission(submission, actor=request.user)
         serializer = self.get_serializer(submission)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return success_response("신청서를 승인했습니다.", serializer.data)
 
     @extend_schema(
         tags=["Submission Moderation"],
@@ -256,7 +305,7 @@ class SubmissionModerationViewSet(viewsets.GenericViewSet):
             reason_detail=reason_detail,
         )
         serializer = self.get_serializer(submission)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return success_response("신청서를 반려했습니다.", serializer.data)
 
 
 class QuestionSetView(APIView):
@@ -272,26 +321,29 @@ class QuestionSetView(APIView):
             OpenApiExample(
                 name="Question set",
                 value={
-                    "version": "v1_3",
-                    "title": "Every Spoke Tells a Story",
-                    "group_labels": {
-                        "me": "It’s Me! · 자기소개",
-                        "intro": "나와 픽시의 시작"
+                    "message": "질문 세트를 조회했습니다.",
+                    "data": {
+                        "version": "v1_3",
+                        "title": "Every Spoke Tells a Story",
+                        "group_labels": {
+                            "me": "It’s Me! · 자기소개",
+                            "intro": "나와 픽시의 시작"
+                        },
+                        "groups": {
+                            "me": [
+                                {"id": "me_1", "text": "간단히 자신을 소개해주세요.", "required": True}
+                            ],
+                            "final": [
+                                {
+                                    "id": "final_1",
+                                    "text": "마지막으로, 당신의 스포킷은 무엇인가요?",
+                                    "required": True
+                                }
+                            ]
+                        },
+                        "required_ids": ["me_1", "final_1"],
+                        "non_selectable_groups": ["final", "me"],
                     },
-                    "groups": {
-                        "me": [
-                            {"id": "me_1", "text": "간단히 자신을 소개해주세요.", "required": True}
-                        ],
-                        "final": [
-                            {
-                                "id": "final_1",
-                                "text": "마지막으로, 당신의 스포킷은 무엇인가요?",
-                                "required": True
-                            }
-                        ]
-                    },
-                    "required_ids": ["me_1", "final_1"],
-                    "non_selectable_groups": ["final", "me"],
                 },
             )
         ],
@@ -306,4 +358,58 @@ class QuestionSetView(APIView):
             "questions": question_set.questions,
             "metadata": question_set.metadata,
         }
-        return Response(payload)
+        return success_response("질문 세트를 조회했습니다.", payload)
+
+
+class UserSubmissionListAPIView(APIView):
+    """로그인 사용자의 신청 목록을 반환합니다."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(tags=["Submissions"], summary="내 신청 목록 조회", responses=SubmissionSerializer(many=True))
+    def get(self, request):
+        submissions = (
+            Submission.objects.filter(user=request.user)
+            .select_related("bike", "build")
+            .prefetch_related("images")
+            .order_by("-created_at")
+        )
+        serializer = SubmissionSerializer(submissions, many=True, context={"request": request})
+        return success_response(
+            "신청서를 조회했습니다.",
+            {
+                "count": submissions.count(),
+                "results": serializer.data,
+            },
+        )
+
+
+class UserSubmissionDetailAPIView(APIView):
+    """로그인 사용자의 개별 신청 조회/수정."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(tags=["Submissions"], summary="내 신청 상세", responses=SubmissionSerializer)
+    def get(self, request, pk: str):
+        submission = get_object_or_404(Submission, pk=pk, user=request.user)
+        serializer = SubmissionSerializer(submission, context={"request": request})
+        return success_response("신청서를 조회했습니다.", serializer.data)
+
+    @extend_schema(tags=["Submissions"], summary="내 신청 수정", responses=SubmissionSerializer)
+    def patch(self, request, pk: str):
+        submission = get_object_or_404(Submission, pk=pk, user=request.user)
+        if submission.status not in {SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED}:
+            return error_response(
+                "초안(draft) 또는 접수(submitted) 상태에서만 수정할 수 있습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="INVALID_STATUS",
+            )
+        serializer = SubmissionSerializer(
+            submission,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("신청서를 수정했습니다.", serializer.data)

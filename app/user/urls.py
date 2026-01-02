@@ -3,6 +3,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from . import views
+from app.submission.api import UserSubmissionDetailAPIView, UserSubmissionListAPIView
 
 app_name = "user"
 
@@ -19,8 +20,8 @@ urlpatterns = [
     path("me/profile/stats/", views.UserProfileSummaryAPIView.as_view(), name="profile-stats"),
     
     # 본인 신청서 엔드포인트
-    path("me/submissions/", views.UserSubmissionListAPIView.as_view(), name="submissions"),
-    path("me/submissions/<uuid:pk>/", views.UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
+    path("me/submissions/", UserSubmissionListAPIView.as_view(), name="submissions"),
+    path("me/submissions/<uuid:pk>/", UserSubmissionDetailAPIView.as_view(), name="submission-detail"),
     
     # (이전 경로는 app.bike.urls 로 이동)
 ]
