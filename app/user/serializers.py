@@ -102,16 +102,31 @@ class StaffSerializer(serializers.ModelSerializer):
         return instance
 
 
-class AuthorPublicSerializer(serializers.ModelSerializer):
-    """포스트 등 공개 영역에 노출되는 작성자 요약 정보."""
 
-    name = serializers.SerializerMethodField()
+class PublicUserProfileSerializer(serializers.ModelSerializer):
+    """공개용 사용자 프로필."""
+
+    profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "profile_image", "name", "intro"]
+        fields = [
+            "id",
+            "nickname",
+            "username",
+            "intro",
+            "region",
+            "sns_link",
+            "profile_image",
+        ]
         read_only_fields = fields
 
-    def get_name(self, obj: User) -> str:
-        # prefer nickname, fallback to username
-        return obj.nickname or obj.username
+    def get_profile_image(self, obj: User):
+        image = getattr(obj, "profile_image", None)
+        if not image:
+            return None
+        return {
+            "url": image.url,
+            "width": image.width,
+            "height": image.height,
+        }

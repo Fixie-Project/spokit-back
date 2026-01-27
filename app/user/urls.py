@@ -3,6 +3,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from . import views
+from .views import PublicUserProfileAPIView
 from app.submission.api import UserSubmissionDetailAPIView, UserSubmissionListAPIView
 
 app_name = "user"
@@ -14,6 +15,9 @@ urlpatterns = [
     
     # OAuth2 인증 엔드포인트
     path("auth/google/", views.GoogleOAuthLoginAPIView.as_view(), name="oauth-google"),
+
+    # 공개 프로필
+    path("users/<uuid:user_id>/profile/", PublicUserProfileAPIView.as_view(), name="public-profile"),
     
     # 본인 정보 엔드포인트
     path("me/profile/", views.UserProfileAPIView.as_view(), name="profile"),

@@ -18,8 +18,11 @@ from .models import User, UserRole
 from .serializers import (
     EmailTokenObtainPairSerializer,
     GoogleOAuthSerializer,
+    PublicUserProfileSerializer,
     UserProfileSerializer,
 )
+
+PUBLIC_TAG = "Public"
 
 
 class UserProfileSummaryAPIView(views.APIView):
@@ -124,11 +127,32 @@ class EmailTokenObtainPairAPIView(TokenObtainPairView):
     serializer_class = EmailTokenObtainPairSerializer
 
 
+class PublicUserProfileAPIView(views.APIView):
+    """공개 사용자 프로필 조회."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        tags=["User", PUBLIC_TAG],
+        summary="사용자 공개 프로필",
+        responses=PublicUserProfileSerializer,
+    )
+    def get(self, request, user_id: str) -> Response:
+        user = get_object_or_404(get_user_model(), id=user_id, is_active=True)
+        serializer = PublicUserProfileSerializer(user, context={"request": request})
+        return success_response("사용자 프로필을 조회했습니다.", serializer.data)
+
+
 class GoogleOAuthLoginAPIView(views.APIView):
     """구글 OAuth id_token을 검증하여 JWT를 발급."""
 
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        tags=["User", PUBLIC_TAG],
+        summary="Google OAuth 로그인",
+        request=GoogleOAuthSerializer,
+    )
     def post(self, request, *args, **kwargs) -> Response:
         serializer = GoogleOAuthSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
