@@ -20,9 +20,13 @@ from app.core.serializers import (
     BaseImageUploadSerializer,
     BuildSearchSerializer,
     GlobalSearchMessageSerializer,
+    HomeBuildSerializer,
+    HomePostSerializer,
     PostSearchSerializer,
     RiderSearchSerializer,
 )
+
+PUBLIC_TAG = "Public"
 
 SEARCH_DEFAULT_LIMIT = 5
 
@@ -43,7 +47,11 @@ class BaseImageUploadView(views.APIView):
         serializer = BaseImageUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return success_response(
+            "이미지 메타데이터를 등록했습니다.",
+            serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
 
 
 class BaseImageFileUploadView(views.APIView):
@@ -91,7 +99,11 @@ class BaseImageFileUploadView(views.APIView):
             height=height,
             filesize=upload.size,
         )
-        return Response(BaseImageUploadSerializer(obj).data, status=status.HTTP_201_CREATED)
+        return success_response(
+            "이미지 파일을 업로드했습니다.",
+            BaseImageUploadSerializer(obj).data,
+            status_code=status.HTTP_201_CREATED,
+        )
 
 
 class GlobalSearchAPIView(views.APIView):
@@ -100,7 +112,7 @@ class GlobalSearchAPIView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
     @extend_schema(
-        tags=["Search"],
+        tags=["Search", PUBLIC_TAG],
         summary="통합 검색 (메거진/라이더/아카이브)",
         parameters=[],
         responses=GlobalSearchMessageSerializer,
@@ -176,7 +188,7 @@ class GlobalSearchAPIView(views.APIView):
 
         # Builds (archive)
         builds = (
-            BikeBuild.objects.filter(is_public=True, base_bike__is_public=True)
+            BikeBuild.objects.filter(is_public=True)
             .filter(models.Q(title__icontains=keyword) | models.Q(base_bike__frame_name__icontains=keyword))
             .select_related("base_bike", "main_image")[:limit]
         )
@@ -188,3 +200,78 @@ class GlobalSearchAPIView(views.APIView):
             "builds": build_data,
         }
         return success_response("검색 결과를 조회했습니다.", payload)
+
+
+class HomeAPIView(views.APIView):
+    """홈 화면용 인기 글/최신 빌드 요약."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        tags=["Home", PUBLIC_TAG],
+        summary="홈 데이터 조회",
+        examples=[
+            OpenApiExample(
+                "Home response",
+                value={
+                    "message": "홈 데이터를 조회했습니다.",
+                    "data": {
+                        "posts": [
+                            {
+                                "id": "uuid",
+                                "slug": "chrome-dreams",
+                                "main_title": "Chrome Dreams",
+                                "sub_title": "Cinelli Mash Histogram",
+                                "created_at": "2025-01-01T12:00:00Z",
+                                "is_editor_pick": False,
+                                "image": {"url": "https://.../hero.jpg", "purpose": "thumbnail"},
+                            }
+                        ],
+                        # "builds": [
+                        #     {
+                        #         "id": "uuid",
+                        #         "title": "Neon Nights",
+                        #         "bike_frame": "Cinelli Tutto Plus",
+                        #         "is_public": True,
+                        #         "main_image": {"url": "https://.../main.jpg", "width": 800, "height": 600},
+                        #         "rider": {"id": "user-uuid", "name": "스포킷 라이더"},
+                        #     }
+                        # ],
+                    },
+                },
+                response_only=True,
+            )
+        ],
+    )
+    def get(self, request):
+        # 기존 로직(인기글 상위 3 + 최신 빌드 10)
+        # posts = (
+        #     Post.objects.filter(status=PostStatus.PUBLISHED)
+        #     .annotate(
+        #         like_count=models.Count("likes", distinct=True),
+        #         comment_count=models.Count("comments", distinct=True),
+        #     )
+        #     .prefetch_related("images")
+        #     .order_by("-like_count", "-comment_count", "-created_at")[:3]
+        # )
+        # builds = (
+        #     BikeBuild.objects.filter(is_public=True)
+        #     .select_related("base_bike__owner", "main_image")
+        #     .order_by("-created_at")[:10]
+        # )
+        # payload = {
+        #     "posts": HomePostSerializer(posts, many=True).data,
+        #     "builds": HomeBuildSerializer(builds, many=True).data,
+        # }
+
+        # 변경: 최신 글 4개만 반환
+        latest_posts = (
+            Post.objects.filter(status=PostStatus.PUBLISHED)
+            .prefetch_related("images")
+            .order_by("-created_at")[:4]
+        )
+        payload = {
+            "posts": HomePostSerializer(latest_posts, many=True).data,
+            # "builds": HomeBuildSerializer(builds, many=True).data,  # 최신 빌드 제거
+        }
+        return success_response("홈 데이터를 조회했습니다.", payload)

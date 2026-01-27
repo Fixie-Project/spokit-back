@@ -26,7 +26,7 @@ class PostSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ["id", "slug", "main_title", "sub_title", "is_editor_pick", "image"]
+        fields = ["id", "slug", "main_title", "sub_title", "is_editor_pick", "image", "created_at"]
         read_only_fields = fields
 
     def get_image(self, obj: Post):
@@ -99,3 +99,28 @@ class GlobalSearchMessageSerializer(MessageSerializer):
     """통합 검색 래퍼."""
 
     data = GlobalSearchResponseSerializer()
+
+
+class HomePostSerializer(PostSearchSerializer):
+    """홈 인기글 요약."""
+
+    class Meta(PostSearchSerializer.Meta):
+        fields = PostSearchSerializer.Meta.fields
+
+
+class HomeBuildSerializer(BuildSearchSerializer):
+    """홈 최신 빌드 요약."""
+
+    rider = serializers.SerializerMethodField()
+
+    class Meta(BuildSearchSerializer.Meta):
+        fields = BuildSearchSerializer.Meta.fields + ["rider"]
+
+    def get_rider(self, obj: BikeBuild):
+        owner = getattr(obj.base_bike, "owner", None)
+        if not owner:
+            return None
+        return {
+            "id": str(owner.id),
+            "name": owner.nickname or owner.username,
+        }
