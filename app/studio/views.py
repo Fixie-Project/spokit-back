@@ -1,6 +1,7 @@
 """스태프 전용 신청 관리 API 모음입니다."""
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -9,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from drf_spectacular.utils import extend_schema
+from app.core.responses import success_response
 from app.post.models import Post, PostStatus
 from app.post.serializers import PostWriteSerializer
 from app.submission.models import Submission, SubmissionStatus
@@ -25,6 +27,23 @@ from .serializers import (
     SubmissionStatusUpdateSerializer,
     SubmissionSummarySerializer,
 )
+
+
+def _publish_submission_if_needed(post: Post, actor) -> None:
+    submission = getattr(post, "submission", None)
+    if not submission or post.status != PostStatus.PUBLISHED:
+        return
+    if submission.status == SubmissionStatus.PUBLISHED:
+        return
+    try:
+        change_submission_status(
+            submission,
+            to_status=SubmissionStatus.PUBLISHED,
+            actor=actor,
+        )
+    except DjangoValidationError as exc:
+        payload = exc.message_dict if hasattr(exc, "message_dict") else {"submission": exc.messages}
+        raise ValidationError(payload) from exc
 
 
 class StudioDashboardAPIView(views.APIView):
@@ -100,7 +119,7 @@ class StudioDashboardAPIView(views.APIView):
             ).data,
             "stats_last_updated": timezone.now(),
         }
-        return Response(payload)
+        return success_response("대시보드를 조회했습니다.", payload)
 
 
 class StudioSubmissionListAPIView(views.APIView):
@@ -120,7 +139,7 @@ class StudioSubmissionListAPIView(views.APIView):
             qs = qs.filter(status=status_filter)
         qs = qs.order_by("-created_at")
         serializer = SubmissionPreviewSerializer(qs, many=True, context={"request": request})
-        return Response(serializer.data)
+        return success_response("신청서 목록을 조회했습니다.", serializer.data)
 
 
 class StudioSubmissionDetailAPIView(views.APIView):
@@ -143,7 +162,7 @@ class StudioSubmissionDetailAPIView(views.APIView):
                 actor=request.user,
             )
         serializer = StudioSubmissionSerializer(submission, context={"request": request})
-        return Response({"submission": serializer.data})
+        return success_response("신청서를 조회했습니다.", {"submission": serializer.data})
 
     def patch(self, request, pk: str) -> Response:
         submission = self.get_object(pk)
@@ -155,7 +174,7 @@ class StudioSubmissionDetailAPIView(views.APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return success_response("신청서를 수정했습니다.", serializer.data)
 
 
 class StudioSubmissionStatusAPIView(views.APIView):
@@ -175,22 +194,33 @@ class StudioSubmissionStatusAPIView(views.APIView):
         reason_code = serializer.validated_data.get("reason_code", "")
         reason_detail = serializer.validated_data.get("reason_detail", "")
 
-        # 간단한 전이만 허용: in_review/approved/rejected/posting/published
+        # 간단한 전이만 허용: submitted/in_review/approved/rejected/published
         allowed = {
             SubmissionStatus.SUBMITTED,
             SubmissionStatus.IN_REVIEW,
             SubmissionStatus.APPROVED,
             SubmissionStatus.REJECTED,
+            SubmissionStatus.PUBLISHED,
         }
         if target_status not in allowed:
             return Response({"status": ["이 상태로는 변경할 수 없습니다."]}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            submission = change_submission_status(
+                submission,
+                to_status=target_status,
+                actor=request.user,
+                comment=reason_detail,
+                reason_code=reason_code or None,
+                reason_detail=reason_detail,
+            )
+        except DjangoValidationError as exc:
+            payload = exc.message_dict if hasattr(exc, "message_dict") else {"status": exc.messages}
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        submission.status = target_status
-        submission.reason_code = reason_code
-        submission.reason_detail = reason_detail
-        submission.save(update_fields=["status", "reason_code", "reason_detail", "updated_at"])
-
-        return Response(StudioSubmissionSerializer(submission, context={"request": request}).data)
+        return success_response(
+            "신청서 상태를 변경했습니다.",
+            StudioSubmissionSerializer(submission, context={"request": request}).data,
+        )
 
 
 class StaffDetailAPIView(views.APIView):
@@ -204,7 +234,7 @@ class StaffDetailAPIView(views.APIView):
     def get(self, request, pk: str) -> Response:
         staff = self.get_object(pk)
         serializer = StaffSerializer(staff, context={"request": request})
-        return Response(serializer.data)
+        return success_response("운영진 정보를 조회했습니다.", serializer.data)
 
     @extend_schema(
         request=StaffSerializer,
@@ -222,7 +252,7 @@ class StaffDetailAPIView(views.APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return success_response("운영진 정보를 수정했습니다.", serializer.data)
 
 
 class StudioPostListAPIView(views.APIView):
@@ -265,7 +295,7 @@ class StudioPostListAPIView(views.APIView):
         qs = qs.order_by(ordering)
 
         serializer = PostStudioSerializer(qs, many=True, context={"request": request})
-        return Response(serializer.data)
+        return success_response("게시글 목록을 조회했습니다.", serializer.data)
 
     @extend_schema(tags=["Studio"], summary="게시글 생성(운영진)", request=PostWriteSerializer, responses=PostStudioSerializer)
     def post(self, request) -> Response:
@@ -286,7 +316,12 @@ class StudioPostListAPIView(views.APIView):
             post.bike.is_posted = True
             post.bike.save(update_fields=["is_posted", "updated_at"])
 
-        return Response(PostStudioSerializer(post, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        _publish_submission_if_needed(post, request.user)
+        return success_response(
+            "게시글을 생성했습니다.",
+            PostStudioSerializer(post, context={"request": request}).data,
+            status_code=status.HTTP_201_CREATED,
+        )
 
 
 class StudioPostDetailAPIView(views.APIView):
@@ -305,7 +340,7 @@ class StudioPostDetailAPIView(views.APIView):
     def get(self, request, slug: str) -> Response:
         post = self.get_object(slug)
         serializer = PostStudioSerializer(post, context={"request": request})
-        return Response({"post": serializer.data})
+        return success_response("게시글을 조회했습니다.", {"post": serializer.data})
 
     def patch(self, request, slug: str) -> Response:
         post = self.get_object(slug)
@@ -322,7 +357,7 @@ class StudioPostDetailAPIView(views.APIView):
             post.save(update_fields=["build_snapshot", "story_snapshot", "updated_at"])
 
         submission = post.submission
-        if submission and submission.status != SubmissionStatus.APPROVED:
+        if submission and submission.status not in {SubmissionStatus.APPROVED, SubmissionStatus.PUBLISHED}:
             return Response(
                 {"submission": ["승인된 신청서만 게시글과 연결할 수 있습니다."]},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -332,9 +367,13 @@ class StudioPostDetailAPIView(views.APIView):
             post.bike.is_posted = True
             post.bike.save(update_fields=["is_posted", "updated_at"])
 
-        return Response(PostStudioSerializer(post, context={"request": request}).data)
+        _publish_submission_if_needed(post, request.user)
+        return success_response(
+            "게시글을 수정했습니다.",
+            PostStudioSerializer(post, context={"request": request}).data,
+        )
 
     def delete(self, request, slug: str) -> Response:
         post = self.get_object(slug)
         post.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return success_response("게시글을 삭제했습니다.")
