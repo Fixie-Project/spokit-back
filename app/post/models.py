@@ -73,6 +73,7 @@ class Post(BaseModel):
     )
     build_snapshot = models.JSONField(default=dict)
     story_snapshot = models.JSONField(default=list)
+    rider_snapshot = models.JSONField(default=dict)
     rider = models.ForeignKey(
         "user.User",
         null=True,
@@ -158,6 +159,13 @@ class Post(BaseModel):
                 self.story_snapshot = story_data
                 changed = True
 
+        if force or not self.rider_snapshot:
+            rider = getattr(submission, "user", None)
+            rider_snap = _build_rider_snapshot(rider) if rider else {}
+            if rider_snap != self.rider_snapshot:
+                self.rider_snapshot = rider_snap
+                changed = True
+
         return changed
 
 
@@ -238,6 +246,24 @@ class Like(BaseModel):
         verbose_name = "좋아요"
         verbose_name_plural = "좋아요"
         unique_together = ("post", "user")
+
+
+def _build_rider_snapshot(user) -> dict[str, Any]:
+    if not user:
+        return {}
+    image = getattr(user, "profile_image", None)
+    image_payload = (
+        {"url": image.url, "width": image.width, "height": image.height} if image else None
+    )
+    return {
+        "id": str(user.id),
+        "nickname": user.nickname,
+        "username": user.username,
+        "intro": user.intro,
+        "region": user.region,
+        "sns_link": user.sns_link,
+        "profile_image": image_payload,
+    }
 
     def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
         return f"{self.user} → {self.post}"

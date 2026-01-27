@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from django.db.models import Count, F, Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.decorators import action
 from rest_framework import mixins, permissions, viewsets
+from app.core.pagination import PostLimitOffsetPagination
 from app.core.responses import success_response
 from .models import Post, PostStatus
 from .serializers import (
@@ -40,8 +42,9 @@ class PostViewSet(
 
     permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
+    pagination_class = PostLimitOffsetPagination
     queryset = (
-        Post.objects.select_related("author", "submission", "bike", "build", "rider")
+        Post.objects.select_related("author__user", "submission", "bike", "build", "rider")
         .prefetch_related("tags", "likes", "images")
         .annotate(comment_count=Count("comments", distinct=True))
     )
@@ -77,8 +80,41 @@ class PostViewSet(
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            payload = {
+                "count": self.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+            return success_response("게시글 목록을 조회했습니다.", payload)
         serializer = self.get_serializer(queryset, many=True)
         return success_response(
             "게시글 목록을 조회했습니다.",
             {"count": queryset.count(), "results": serializer.data},
+        )
+
+    @extend_schema(
+        tags=["Posts", PUBLIC_TAG],
+        summary="인기 게시글 TOP3",
+        description="좋아요 수 + 댓글 수를 기준으로 상위 3개 발행 게시글을 반환합니다.",
+        responses=PostListResponseSerializer,
+    )
+    @action(detail=False, methods=["get"], url_path="popular", permission_classes=[permissions.AllowAny])
+    def popular(self, request, *args, **kwargs):
+        queryset = (
+            self.get_queryset()
+            .annotate(
+                like_count=Count("likes", distinct=True),
+                comment_count=Count("comments", distinct=True),
+            )
+            .prefetch_related("images")
+            .order_by("-like_count", "-comment_count", "-created_at")[:3]
+        )
+        serializer = PostListSerializer(queryset, many=True, context={"request": request})
+        return success_response(
+            "인기 게시글을 조회했습니다.",
+            {"count": len(serializer.data), "results": serializer.data},
         )

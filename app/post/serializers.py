@@ -5,9 +5,7 @@ from rest_framework import serializers
 
 from app.core.models import BaseImage
 
-from app.bike.serializers import BikeSerializer, BikeBuildSerializer
 from app.submission.models import Submission
-from app.user.serializers import AuthorPublicSerializer
 
 from .models import Comment, Post, PostImage, PostImagePurpose, PostStatus, Tag
 
@@ -60,15 +58,14 @@ class PostImageWriteSerializer(serializers.Serializer):
 class PostSerializer(serializers.ModelSerializer):
     """게시글을 조회할 때 필요한 상세 정보를 제공."""
 
-    author = AuthorPublicSerializer(read_only=True)
+    author = serializers.SerializerMethodField()
     tags = TagSerializer(many=True, read_only=True)
     like_count = serializers.IntegerField(source="likes.count", read_only=True)
     comment_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     submission = serializers.SerializerMethodField()
-    bike = BikeSerializer(read_only=True)
-    build = BikeBuildSerializer(read_only=True)
     images = PostImageSerializer(many=True, read_only=True)
+    thumbnail_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -76,10 +73,6 @@ class PostSerializer(serializers.ModelSerializer):
             "id",
             "author",
             "submission",
-            "bike",
-            "build",
-            "build_snapshot",
-            "story_snapshot",
             "rider",
             "main_title",
             "sub_title",
@@ -96,6 +89,7 @@ class PostSerializer(serializers.ModelSerializer):
             "is_editor_pick",
             "tags",
             "images",
+            "thumbnail_image",
             "like_count",
             "comment_count",
             "is_liked",
@@ -104,10 +98,6 @@ class PostSerializer(serializers.ModelSerializer):
             "id",
             "author",
             "submission",
-            "bike",
-            "build",
-            "build_snapshot",
-            "story_snapshot",
             "rider",
             "published_at",
             "created_at",
@@ -128,7 +118,20 @@ class PostSerializer(serializers.ModelSerializer):
         return {
             "id": str(submission.id),
             "status": submission.status,
+            "build_snapshot": getattr(obj, "build_snapshot", None) or submission.build_snapshot,
+            "story_snapshot": getattr(obj, "story_snapshot", None) or submission.story_blocks,
+            "rider_snapshot": getattr(obj, "rider_snapshot", None) or getattr(submission, "rider_snapshot", {}),
         }
+
+    def get_author(self, obj: Post):
+        author = getattr(obj, "author", None)  # author는 Staff
+        if not author:
+            return None
+        user = getattr(author, "user", None)
+        if user:
+            return {"id": user.id, "nickname": user.nickname or user.username}
+        # 혹시나 Staff에 user가 없을 때도 안전하게 처리
+        return None
 
     def get_comment_count(self, obj: Post) -> int:
         count = getattr(obj, "comment_count", None)
@@ -145,6 +148,21 @@ class PostSerializer(serializers.ModelSerializer):
         if prefetched_likes is not None:
             return any(like.user_id == user.id for like in prefetched_likes)
         return obj.likes.filter(user=user).exists()
+
+    def get_thumbnail_image(self, obj: Post):
+        images = getattr(obj, "_prefetched_objects_cache", {}).get("images") if hasattr(obj, "_prefetched_objects_cache") else None
+        if images is None:
+            images = list(obj.images.all())
+        thumb = next((i for i in images if i.purpose == PostImagePurpose.THUMBNAIL), None)
+        if thumb:
+            return {"url": thumb.url, "purpose": thumb.purpose, "order": thumb.order, "caption": thumb.caption}
+        # fallback: header/hero/body 중 가장 낮은 order
+        priority = {PostImagePurpose.HEADER: 0, PostImagePurpose.HERO: 1, PostImagePurpose.BODY: 2}
+        sorted_imgs = sorted(images, key=lambda i: (priority.get(i.purpose, 99), i.order))
+        if sorted_imgs:
+            img = sorted_imgs[0]
+            return {"url": img.url, "purpose": img.purpose, "order": img.order, "caption": img.caption}
+        return None
 
 
 class PostWriteSerializer(serializers.ModelSerializer):
@@ -241,6 +259,7 @@ class PostListSerializer(PostSerializer):
             "slug",
             "main_title",
             "sub_title",
+            "thumbnail_image",
             "created_at",
             "is_editor_pick",
             "tags",
