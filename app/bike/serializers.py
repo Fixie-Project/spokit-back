@@ -18,28 +18,18 @@ COMPONENT_CATEGORIES = (
     "etc",
 )
 
-class BikePublicListSerializer(serializers.ModelSerializer):
-    """공개 목록에서 사용하는 자전거 요약."""
+class BikeOwnerPublicSerializer(serializers.Serializer):
+    """공개 목록에서 노출되는 자전거 소유자 요약."""
 
-    build_names = serializers.SerializerMethodField()
+    id = serializers.UUIDField()
+    nickname = serializers.CharField()
+    username = serializers.CharField()
 
-    class Meta:
-        model = Bike
-        fields = [
-            "id",
-            "name",
-            "frame_name",
-            "created_at",
-            "updated_at",
-            "build_names",
-        ]
-        read_only_fields = fields
-
-    def get_build_names(self, obj: Bike) -> list[str]:
-        builds = getattr(obj, "_public_builds", None)
-        if builds is None:
-            builds = [build for build in obj.builds.all() if build.is_public]
-        return [build.title for build in builds]
+    @classmethod
+    def from_user(cls, user):
+        if not user:
+            return None
+        return {"id": user.id, "nickname": user.nickname, "username": user.username}
 
 
 class BikeSummarySerializer(serializers.ModelSerializer):
@@ -55,30 +45,32 @@ class BikeBuildSerializer(serializers.ModelSerializer):
     """자전거 빌드 메타데이터를 직렬화."""
 
     base_bike = BikeSummarySerializer(read_only=True)
-    main_image = serializers.SerializerMethodField()
+    main_image_url = serializers.SerializerMethodField()
+    owner = serializers.SerializerMethodField()
 
     class Meta:
         model = BikeBuild
         fields = [
             "id",
+            "owner",
             "base_bike",
             "title",
             "is_public",
             "created_at",
             "updated_at",
-            "main_image",
+            "main_image_url",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
 
-    def get_main_image(self, obj: BikeBuild):
+    def get_main_image_url(self, obj: BikeBuild):
         image = getattr(obj, "main_image", None)
         if not image:
             return None
-        return {
-            "url": image.url,
-            "width": image.width,
-            "height": image.height,
-        }
+        return image.url
+
+    def get_owner(self, obj: BikeBuild):
+        bike = getattr(obj, "base_bike", None)
+        return BikeOwnerPublicSerializer.from_user(getattr(bike, "owner", None))
 
 
 class BikeBuildWriteSerializer(serializers.ModelSerializer):
@@ -184,7 +176,7 @@ class BikeSerializer(serializers.ModelSerializer):
     """자전거 기본 정보와 연결된 빌드를 함께 직렬화."""
 
     builds = BikeBuildSerializer(many=True, read_only=True)
-    main_image = serializers.SerializerMethodField()
+    main_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Bike
@@ -193,8 +185,7 @@ class BikeSerializer(serializers.ModelSerializer):
             "owner",
             "name",
             "frame_name",
-            "main_image",
-            "is_public",
+            "main_image_url",
             "is_posted",
             "created_at",
             "updated_at",
@@ -202,15 +193,11 @@ class BikeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("id", "owner", "created_at", "updated_at", "builds")
 
-    def get_main_image(self, obj: Bike):
+    def get_main_image_url(self, obj: Bike):
         image = getattr(obj, "main_image", None)
         if not image:
             return None
-        return {
-            "url": image.url,
-            "width": image.width,
-            "height": image.height,
-        }
+        return image.url
 
 
 class BikeBuildDetailSerializer(serializers.ModelSerializer):
@@ -275,11 +262,6 @@ class BikeListResponseSerializer(MessageSerializer):
 
 class BikeDetailResponseSerializer(MessageSerializer):
     data = BikeSerializer()
-
-
-class BikePublicListResponseSerializer(MessageSerializer):
-    data = BikePublicListSerializer(many=True)
-
 
 class BikeBuildListResponseSerializer(MessageSerializer):
     data = BikeBuildSerializer(many=True)

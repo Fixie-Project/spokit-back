@@ -35,7 +35,6 @@ class Bike(BaseModel):
         on_delete=models.SET_NULL,
         related_name="main_bikes",
     )
-    is_public = models.BooleanField(default=False)
     is_posted = models.BooleanField(default=False)
 
     class Meta:
@@ -43,7 +42,6 @@ class Bike(BaseModel):
         verbose_name = "자전거"
         verbose_name_plural = "자전거"
         indexes = [
-            models.Index(fields=["is_public"], name="bike_public_idx"),
             models.Index(fields=["is_posted"], name="bike_posted_idx"),
         ]
 

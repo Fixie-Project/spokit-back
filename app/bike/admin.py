@@ -12,8 +12,8 @@ class BikeBuildInline(admin.TabularInline):
 
 @admin.register(Bike)
 class BikeAdmin(admin.ModelAdmin):
-    list_display = ("frame_name", "owner", "is_public", "is_posted", "updated_at")
-    list_filter = ("is_public", "is_posted")
+    list_display = ("frame_name", "owner", "is_posted", "updated_at")
+    list_filter = ("is_posted",)
     search_fields = ("frame_name", "owner__email", "owner__nickname")
     inlines = [BikeBuildInline]
 
