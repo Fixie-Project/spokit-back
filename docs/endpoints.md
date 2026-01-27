@@ -11,77 +11,98 @@
 > ```
 >
 > HTTP 상태 코드는 상황에 따라 `400`(검증 실패), `401`(인증 필요), `403`(권한 부족), `404`(존재하지 않음) 등을 반환합니다.
-> 모든 성공 응답은 `{"message": "...", "data": ...}` 형태를 사용하며, 일부 삭제 등은 `data` 없이 메시지만 내려줍니다.
+> 모든 성공 응답은 `{"message": "...", "data": ...}` 형태를 원칙으로 사용하며, 토글/삭제/일부 내부 운영 API는 예외적으로 `data` 없이 메시지만 반환할 수 있습니다.
 
 ## 인증/권한 요약
 - 기본 인증: JWT(Access/Refresh). `Authorization: Bearer <token>` 헤더 사용.
-- 명시적으로 `AllowAny` 로 표시된 엔드포인트만 비로그인 접근 가능.
-- `visibility` 쿼리는 기본 목록 엔드포인트(`/api/bikes/`, `/api/bike-builds/`)에서만 의미가 있으며, 로그인 사용자가 자신의 리소스를 필터링할 때 활용합니다.
+- 현재 토큰 발급은 `POST /api/auth/google/` 만 활성화되어 있습니다. 이메일/비밀번호 기반 JWT 엔드포인트는 비활성화 상태입니다.
+- 비로그인 접근은 아래 **Public 엔드포인트** 목록과 공개 리소스 조회(예: 공개 빌드 상세)에 한해 가능합니다.
+- `visibility` 쿼리는 `/api/me/bike-builds/`에서만 의미가 있으며, 로그인 사용자가 자신의 리소스를 필터링할 때 활용합니다.
 
 ### 비로그인 접근 가능 API
-- `POST /api/auth/jwt/create/`, `POST /api/auth/jwt/refresh/`, `POST /api/auth/google/`
-- `GET /api/public/bikes/`
+- `POST /api/auth/google/`
+- `GET /api/users/<uuid>/profile/`
+- `GET /api/public/bike-builds/`
 - `GET /api/posts/`, `GET /api/posts/<slug>/`
+- `GET /api/posts/popular/`
+- `GET /api/bike-builds/<uuid>/` (공개 빌드만)
 - `GET /api/question-set/`
+- `GET /api/search/`
+- `GET /api/home/`
 - `GET /api/schema/`, `/api/docs/`, `/api/redoc/`
 
-> OpenAPI 스키마에서는 위 엔드포인트들에 `Public` 태그가 추가되어 있어 쉽게 필터링할 수 있습니다.
+> OpenAPI 스키마에 노출되는 공개 엔드포인트에는 `Public` 태그가 추가되어 있어 쉽게 필터링할 수 있습니다.  
+> 이 태그는 문서 분류용 라벨이며, 권한은 각 API의 permission 설정을 기준으로 판단합니다.
 
 ---
 
 ## 1. 인증 & 사용자
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
-| POST | `/api/auth/jwt/create/` | 누구나 | 이메일/비밀번호로 액세스·리프레시 토큰 발급 |
-| POST | `/api/auth/jwt/refresh/` | 누구나 | 리프레시 토큰으로 액세스 토큰 재발급 |
 | POST | `/api/auth/google/` | 누구나 | Google `id_token` 기반 로그인/회원가입 |
 | GET | `/api/me/profile/` | 로그인 | 내 프로필 조회 |
 | PATCH | `/api/me/profile/` | 로그인 | 닉네임, 소개 등 수정 |
+| GET | `/api/users/<uuid>/profile/` | 누구나 | 사용자 공개 프로필 조회 |
 | GET | `/api/me/profile/stats/` | 로그인 | 신청서 상태 통계 |
 | GET | `/api/me/submissions/` | 로그인 | 내 신청서 목록 (`count`, `results`) |
 | GET | `/api/me/submissions/<uuid>/` | 로그인 | 내 신청서 상세 |
 | PATCH | `/api/me/submissions/<uuid>/` | 로그인 | 내 신청서 부분 수정 |
 
+### Deprecated/Removed
+- `POST /api/auth/jwt/create/`, `POST /api/auth/jwt/refresh/` (현재 비활성화)
+
 ---
 
 ## 2. 자전거(Bikes)
-### 2.1 내 자전거 보기
-- `GET /api/me/bikes/?visibility=<public|private>` *(로그인)* — 에일리어스: `/api/bikes/`
-  - 자신의 자전거 목록을 반환합니다. `visibility` 를 생략하면 전체가 내려옵니다.
+Bikes는 프레임 단위로 빌드를 묶어 관리하기 위한 엔티티이며, 마이페이지 “프레임별” 탭에서 주로 사용됩니다.
+공개 여부는 BikeBuild 단위에서만 의미가 있습니다.
+### 2.1 내 자전거 보기 (마이페이지 · 프레임별)
+- `GET /api/me/bikes/` *(로그인)*
+  - 내 자전거(프레임) 목록을 반환합니다.
+  - 마이페이지 “프레임별” 탭에서 사용합니다.
 
 ### 2.2 공개 자전거 보기
-- `GET /api/public/bikes/`
-  - 누구나 접근 가능. 전체 사용자 중 공개로 설정된 자전거를 모두 반환합니다.
-  - 각 자전거에는 공개 빌드의 `id`/`title`을 담은 `build_names` 배열이 포함됩니다.
-- `GET /api/users/<user_uuid>/bikes/`
-  - 로그인 필요. 특정 사용자의 공개 자전거만 반환합니다.
-  - 각 자전거에는 공개 빌드의 `id`/`title`을 담은 `build_names` 배열이 포함됩니다.
-- `GET /api/users/<user_uuid>/bike-builds/`
-  - 로그인 필요. 해당 사용자의 공개 빌드만 반환합니다.
-- `GET /api/bikes/?owner=<user_uuid>` *(하위 호환용)*
+- 현재 공개 자전거 엔드포인트는 제공하지 않습니다.
+- 공개 탐색은 빌드 단위(`/api/public/bike-builds/`)로만 제공합니다.
 
-### 2.3 세부 엔드포인트
+### 2.3 자전거 세부 엔드포인트
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/api/me/bikes/<uuid>/` *(에일리어스: `/api/bikes/<uuid>/`)* | 로그인 | 자전거 상세. 소유자만 비공개 자전거 확인 가능 |
-| GET | `/api/bikes/<uuid>/builds/` | 로그인 | 소유자는 전체, 타인은 공개 빌드만 확인 |
-| POST | `/api/bikes/` | 로그인 | 자전거 등록 (요청 사용자가 자동 소유자) |
-| PATCH/PUT | `/api/bikes/<uuid>/` | 소유자 | 자전거 수정 |
-| DELETE | `/api/bikes/<uuid>/` | 소유자 | 자전거 삭제 |
+| GET | `/api/me/bikes/<uuid>/` | 로그인 | 내 자전거 상세(비공개 포함) |
+| PATCH/PUT | `/api/me/bikes/<uuid>/` | 소유자 | 내 자전거 수정 |
+| DELETE | `/api/me/bikes/<uuid>/` | 소유자 | 내 자전거 삭제 |
+| POST | `/api/me/bikes/` | 로그인 | 자전거(프레임) 등록 |
+
+> 비로그인은 자전거 상세를 직접 조회하지 않으며, 공개 빌드 상세(`/api/bike-builds/<uuid>/`)로 접근합니다.
+
+### Deprecated/Removed
+- `/api/bikes/`, `/api/bikes/<uuid>/`, `/api/bikes/<uuid>/builds/`
+- `/api/users/<user_uuid>/bikes/`
+- `/api/public/bikes/`
 
 
 
 ---
 
 ## 3. 자전거 빌드(Bike Builds)
-- 자신의 빌드 목록: `GET /api/me/bike-builds/?visibility=<public|private>&frame_name=<text>&base_bike=<uuid>&ordering=<created_at|-created_at|title|-title>` *(로그인)* — 에일리어스: `/api/bike-builds/`
-  - `visibility` 생략 시 전체, `public`/`private` 로 필터 가능.
-- 타인의 공개 빌드 목록: `GET /api/users/<user_uuid>/bike-builds/` *(로그인)*
-- 전체 공개 빌드 아카이브: `GET /api/public/bike-builds/` *(비로그인)*
-- 특정 자전거의 빌드 목록: `GET /api/bikes/<bike_uuid>/builds/` *(로그인)*
-- 빌드 상세: `GET /api/me/bike-builds/<uuid>/` *(에일리어스: `/api/bike-builds/<uuid>/`)* — 공개 빌드 또는 소유자 접근, main_image, images 포함
-- 빌드 수정: `PATCH /api/bike-builds/<uuid>/` (소유자)
-- 빌드 생성: `POST /api/bike-builds/` (소유 자전거에 한함) — 요청 본문 핵심 필드
+BikeBuild는 아카이브/탐색/공유의 중심이 되는 콘텐츠 단위입니다.
+### 3.1 내 빌드 보기 (마이페이지 · 빌드별)
+- `GET /api/me/bike-builds/?visibility=<public|private>&ordering=<created_at|-created_at|title|-title>` *(로그인)*
+  - 내 빌드 목록을 반환합니다. `visibility` 생략 시 전체가 내려옵니다.
+  - 마이페이지 “빌드별” 탭에서는 기본적으로 `ordering=-created_at` 을 사용합니다.
+
+### 3.2 공개 빌드 아카이브 (탐색)
+- `GET /api/public/bike-builds/?limit=<n>&offset=<n>` *(비로그인)*
+  - 전체 공개 빌드 목록(아카이브)입니다. 기본 `limit=10`.
+
+### 3.3 빌드 상세
+- `GET /api/bike-builds/<uuid>/` *(비로그인 가능, 조건부)*
+  - 접근 규칙: 공개 빌드는 누구나, 비공개는 소유자만 조회 가능합니다.
+
+### 3.4 빌드 수정/생성 (내 리소스)
+- `GET /api/me/bike-builds/<uuid>/` *(로그인)* — 내 빌드 상세
+- `POST /api/me/bike-builds/` *(로그인)* — 빌드 생성 (내 자전거에 한함) — 요청 본문 핵심 필드
+- `PATCH /api/me/bike-builds/<uuid>/` *(소유자)* — 빌드 일부 수정
   ```json
   {
     "base_bike": "<bike_uuid>",
@@ -105,16 +126,23 @@
   - 각 카테고리는 공백 제거 후 남는 문자열만 저장되며, 최소 3개 이상의 카테고리가 채워져야 합니다.
   - 문자열 한 개만 보낼 경우 자동으로 리스트로 승격됩니다.
   - 허용되지 않은 카테고리를 넘기면 400 오류(`{"components": {"unknown": "허용되지 않은 카테고리입니다."}}`)가 발생합니다.
-  - `images`는 최대 10장. 초과 시 400.
+  - `images`는 최대 5장. 초과 시 400.
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/bike-builds/` | 내 빌드 목록 (쿼리: visibility, frame_name, base_bike, ordering) |
-| GET | `/api/users/<uuid>/bike-builds/` | 특정 사용자의 공개 빌드 목록 |
+| GET | `/api/me/bike-builds/` | 내 빌드 목록 (쿼리: visibility, ordering) |
 | GET | `/api/public/bike-builds/` | 전체 공개 빌드 목록 |
 | GET | `/api/bike-builds/<uuid>/` | 빌드 상세 (소유자 또는 공개) |
-| POST | `/api/bike-builds/` | 빌드 생성 (소유 자전거에 한함) |
-| PATCH | `/api/bike-builds/<uuid>/` | 빌드 일부 수정 (소유자) |
+| GET | `/api/me/bike-builds/<uuid>/` | 내 빌드 상세 |
+| POST | `/api/me/bike-builds/` | 빌드 생성 (소유 자전거에 한함) |
+| PATCH | `/api/me/bike-builds/<uuid>/` | 빌드 일부 수정 (소유자) |
+
+### Deprecated/Removed
+- `/api/bike-builds/` (내 빌드 목록 에일리어스)
+- `/api/bikes/<bike_uuid>/builds/`
+
+### Planned (v0.3)
+- `/api/users/<user_uuid>/bike-builds/` (공개 빌드만, AllowAny 예정)
 
 ---
 
@@ -127,12 +155,13 @@
 | GET | `/api/submissions/` | 내 신청서 목록 |
 | POST | `/api/submissions/` | 신청서 생성 (`title`, `story_blocks`, `build_snapshot` 등) |
 | GET | `/api/submissions/<uuid>/` | 신청서 상세 |
-| PATCH | `/api/submissions/<uuid>/` | 신청서 일부 수정 (PUT 미지원) |
-| DELETE | `/api/submissions/<uuid>/` | 신청서 삭제 |
+| PATCH | `/api/submissions/<uuid>/` | 신청서 일부 수정 (초안/반려 상태만) |
+| DELETE | `/api/submissions/<uuid>/` | 신청서 삭제 (초안/반려 상태만) |
 | POST | `/api/submissions/<uuid>/submit/` | 초안 → 접수(`submitted`) 전환 |
 | POST | `/api/submissions/<uuid>/resubmit/` | 반려 → 재신청(`resubmitted`) (Body: `comment` 선택) |
 
 - 반려된 신청서는 `reason_code`(사전 정의된 카테고리)와 `reason_detail`(추가 설명)로 사유가 전달됩니다.
+- 수정/삭제 허용 상태: `draft`, `rejected`. 그 외 상태에서는 `INVALID_STATUS` 오류가 반환됩니다.
 
 ### 4.1 운영진 워크플로우 `/api/submission-workflow/<uuid>/`
 | Method | Action | 권한 | 설명 |
@@ -156,13 +185,16 @@
 | --- | --- | --- | --- |
 | GET | `/api/posts/` | 누구나 | 게시글 목록. 비스태프는 발행(`published`)만 확인 |
   - `?q=` 파라미터로 제목/부제/본문/브랜드에 키워드 검색 가능 |
-  - 응답(`PostListSerializer`): `id`, `author`, `main_title`, `sub_title`, `created_at`, `is_editor_pick`, `tags`, `like_count`, `comment_count`(annotate), `is_liked`(로그인 시 사용자 기준, 미로그인 `false`) |
+  - 응답(`PostListSerializer`): `id`, `author`, `slug`, `main_title`, `sub_title`, `thumbnail_image`, `created_at`, `is_editor_pick`, `tags`, `like_count`, `comment_count`(annotate), `is_liked`(로그인 시 사용자 기준, 미로그인 `false`) |
 | GET | `/api/posts/<slug>/` | 누구나 | 게시글 상세 (발행 글 조회 시 `view_count` 1 증가) |
+| GET | `/api/posts/popular/` | 누구나 | 좋아요+댓글 기준 Top 3 발행 글 |
 
 | Method | Path | 권한 | 설명 |
 | --- | --- | --- | --- |
 | POST | `/api/posts/<slug>/like/` | 로그인 | 좋아요 토글 응답: `liked`, `like_count` |
-| POST | `/api/posts/<slug>/comments/` | 로그인 | 댓글 작성 (`content` 필드) |
+| POST | `/api/posts/<slug>/comments/` | 로그인 | 댓글 작성 (`content` 필드) — 비스태프는 발행 글에만 가능 |
+| PATCH | `/api/posts/<slug>/comments/<uuid:comment_id>/` | 작성자 | 본인 댓글 일부 수정 |
+| DELETE | `/api/posts/<slug>/comments/<uuid:comment_id>/` | 작성자 | 본인 댓글 삭제 |
 
 ---
 
@@ -183,6 +215,7 @@
 | PATCH | `/api/studio/staff/<uuid>/` | Admin | 운영진 정보 수정 |
 
 ### `/api/studio/dashboard/` 응답 필드 (확장)
+- 응답: `message/data` 래퍼, `data`에 아래 필드 포함
 - 기본 제공: `total_pending`, `total_posting`, `pending`, `posting` (생성일 내림차순)
   - `pending`: submitted/in_review, `posting`: approved(기획 승인 완료)
 - 요약 리스트: `pending_top`, `posting_top` (최대 5건 기본, `?limit=<n>`으로 1~50 조정)
@@ -194,16 +227,16 @@
 
 ### `/api/studio/posts/` (운영진)
 - 쿼리: `status=<draft|review|published>`, `q=<keyword>`, `ordering=<created_at|-created_at|updated_at|-updated_at|published_at|-published_at>`
-- 응답: `PostStudioSerializer` 배열 — 퍼블릭 제한 없이 모든 상태 노출, 조회수 증분 없음.
+- 응답: `message/data` 래퍼, `data`는 `PostStudioSerializer` 배열 — 퍼블릭 제한 없이 모든 상태 노출, 조회수 증분 없음.
 - POST: `PostWriteSerializer`로 생성, 연결된 신청서가 있으면 `approved` 상태여야 하며, 신청서 없이도 생성 가능.
 
 ### `/api/studio/posts/<slug>/`
-- GET: `PostStudioSerializer` 단건(`{ "post": ... }`), 상태 무관, 조회수 증분 없음.
-- PATCH: `PostWriteSerializer`로 일부 수정. 상태가 `published`로 바뀌면 연동된 신청서가 `posting→published`로 전환됨.
-- DELETE: 204 No Content
+- GET: `message/data` 래퍼, `data`는 `{ "post": ... }`, 상태 무관, 조회수 증분 없음.
+- PATCH: `PostWriteSerializer`로 일부 수정. 상태가 `published`로 바뀌면 연동된 신청서가 `approved→published`로 전환됨.
+- DELETE: `message`만 반환 (data 없음)
 
 ### `/api/studio/submissions/`
-- 목록 응답: 미리보기 전용 필드(`SubmissionPreviewSerializer`)
+- 목록 응답: `message/data` 래퍼, `data`는 미리보기 전용 필드(`SubmissionPreviewSerializer`)
   - `id`, `title`, `status`, `created_at`, `updated_at`
   - `rider`: id/email/username/nickname/region/intro/sns_link
   - `bike_frame`: 신청서에 연결된 자전거 프레임명 (없으면 null)
@@ -211,6 +244,15 @@
 
 ---
 
+
+## 7. 문서 & 스키마
+| Path | 설명 |
+| --- | --- |
+| `GET /api/schema/` | OpenAPI 스키마(JSON) |
+| `GET /api/docs/` | Swagger UI |
+| `GET /api/redoc/` | ReDoc 문서 |
+
+---
 
 ## 8. 이미지 업로드 메타 등록
 | Method | Path | 권한 | 설명 |
@@ -232,23 +274,17 @@
 응답 예시:
 ```json
 {
-  "id": "<base_image_id>",
-  "url": "https://s3.../image.jpg",
-  "s3_key": "path/to/image.jpg",
-  "width": 1200,
-  "height": 800,
-  "filesize": 204800
+  "message": "이미지 메타데이터를 등록했습니다.",
+  "data": {
+    "id": "<base_image_id>",
+    "url": "https://s3.../image.jpg",
+    "s3_key": "path/to/image.jpg",
+    "width": 1200,
+    "height": 800,
+    "filesize": 204800
+  }
 }
 ```
-
-## 7. 문서 & 스키마
-| Path | 설명 |
-| --- | --- |
-| `GET /api/schema/` | OpenAPI 스키마(JSON) |
-| `GET /api/docs/` | Swagger UI |
-| `GET /api/redoc/` | ReDoc 문서 |
-
----
 
 ## 9. 통합 검색
 - `GET /api/search/?q=<keyword>&limit=<n>` (누구나)
@@ -256,5 +292,13 @@
   - posts: 발행된 메거진 글만 (`id`, `slug`, `main_title`, `sub_title`, `is_editor_pick`, `image`)
   - riders: 활성 사용자 (`id`, `name`, `intro`, `profile_image`)
   - builds: 공개 아카이브 빌드 (`id`, `title`, `bike_frame`, `is_public`, `main_image`)
+  - 응답 래퍼: `{"message": "검색 결과를 조회했습니다.", "data": {posts, riders, builds}}`
 
-최근 업데이트: 2025-12-27
+---
+
+## 10. 홈
+- `GET /api/home/` (누구나)
+  - 최신 게시글 4건을 반환합니다.
+  - 응답 래퍼: `{"message": "홈 데이터를 조회했습니다.", "data": {posts}}`
+
+최근 업데이트: 2026-01-27
