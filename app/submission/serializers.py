@@ -28,7 +28,6 @@ class SubmissionNewBikeSerializer(serializers.Serializer):
 
     frame_name = serializers.CharField()
     name = serializers.CharField(required=False, allow_blank=True)
-    is_public = serializers.BooleanField(required=False, default=False)
 
 
 class SubmissionNewBuildSerializer(BikeBuildWriteSerializer):
@@ -54,6 +53,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
     build = BikeBuildSerializer(read_only=True)
     story_blocks = serializers.ListField(child=StoryBlockSerializer(), allow_empty=False)
     build_snapshot = serializers.DictField(allow_empty=True, required=False)
+    rider_snapshot = serializers.DictField(read_only=True)
     build_id = serializers.UUIDField(required=False, allow_null=True, write_only=True)
     new_build_payload = SubmissionNewBuildPayloadSerializer(required=False, write_only=True)
 
@@ -67,6 +67,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "title",
             "build_snapshot",
             "story_blocks",
+            "rider_snapshot",
             "build_id",
             "new_build_payload",
             "status",

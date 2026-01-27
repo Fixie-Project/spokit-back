@@ -22,6 +22,8 @@ from .serializers import (
 )
 from .services import change_submission_status, ensure_post_for_submission
 
+PUBLIC_TAG = "Public"
+
 EDITABLE_STATUSES = {SubmissionStatus.DRAFT, SubmissionStatus.REJECTED}
 DELETABLE_STATUSES = {SubmissionStatus.DRAFT, SubmissionStatus.REJECTED}
 
@@ -368,7 +370,7 @@ class QuestionSetView(APIView):
     permission_classes = [permissions.AllowAny]
 
     @extend_schema(
-        tags=["Submissions"],
+        tags=["Submissions", PUBLIC_TAG],
         summary="질문 세트 조회",
         responses=QuestionSetMessageSerializer,
         examples=[

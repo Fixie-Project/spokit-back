@@ -11,12 +11,13 @@ from app.bike.models import Bike, BikeBuild
 from app.user.models import Staff, User
 
 from .models import Submission, SubmissionStatus, SubmissionStatusLog
+from app.post.models import _build_rider_snapshot
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     SubmissionStatus.DRAFT: {SubmissionStatus.SUBMITTED},
     SubmissionStatus.SUBMITTED: {SubmissionStatus.IN_REVIEW, SubmissionStatus.REJECTED},
     SubmissionStatus.IN_REVIEW: {SubmissionStatus.APPROVED, SubmissionStatus.REJECTED},
-    SubmissionStatus.APPROVED: set(),
+    SubmissionStatus.APPROVED: {SubmissionStatus.PUBLISHED},
     SubmissionStatus.REJECTED: {SubmissionStatus.RESUBMITTED},
     SubmissionStatus.RESUBMITTED: {SubmissionStatus.IN_REVIEW},
 }
@@ -34,7 +35,6 @@ def build_to_snapshot(build: BikeBuild) -> dict:
             "id": str(bike.id),
             "name": bike.name,
             "frame_name": bike.frame_name,
-            "is_public": bike.is_public,
         },
         "build": {
             "id": str(build.id),
@@ -161,6 +161,8 @@ def ensure_post_for_submission(submission: Submission, *, actor: User):
     frame_brand = bike_snapshot.get("frame_name") or getattr(submission.bike, "frame_name", "") or submission.title
     frame_type = bike_snapshot.get("frame_type", "")
 
+    rider_snapshot = submission.rider_snapshot or _build_rider_snapshot(submission.user)
+
     return Post.objects.create(
         author=author_profile,
         submission=submission,
@@ -169,6 +171,7 @@ def ensure_post_for_submission(submission: Submission, *, actor: User):
         build_snapshot=submission.build_snapshot or {},
         story_snapshot=submission.story_blocks or [],
         rider=submission.user,
+        rider_snapshot=rider_snapshot,
         main_title=submission.title,
         sub_title=submission.title,
         content_md="",

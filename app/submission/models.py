@@ -8,6 +8,7 @@ from django.db import models
 
 from app.bike.models import Bike, BikeBuild
 from app.core.models import BaseImage, BaseModel
+from app.user.models import User
 
 
 class SubmissionStatus(models.TextChoices):
@@ -60,6 +61,7 @@ class Submission(BaseModel):
     title = models.CharField(max_length=200)
     build_snapshot = models.JSONField(default=dict)
     story_blocks = models.JSONField(default=list)
+    rider_snapshot = models.JSONField(default=dict)
     status = models.CharField(max_length=20, choices=SubmissionStatus.choices, default=SubmissionStatus.DRAFT)
     reason_code = models.CharField(
         max_length=40,
@@ -98,6 +100,8 @@ class Submission(BaseModel):
             self.reason_detail = ""
 
     def save(self, *args, **kwargs):
+        if not self.rider_snapshot:
+            self.rider_snapshot = self._build_rider_snapshot()
         self.full_clean(exclude=None)
         super().save(*args, **kwargs)
 
@@ -109,7 +113,26 @@ class Submission(BaseModel):
             "title": self.title,
             "build_snapshot": self.build_snapshot,
             "story_blocks": self.story_blocks,
+            "rider_snapshot": self.rider_snapshot,
             "status": self.status,
+        }
+
+    def _build_rider_snapshot(self) -> dict[str, Any]:
+        user: User | None = getattr(self, "user", None)
+        if not user:
+            return {}
+        image = getattr(user, "profile_image", None)
+        image_payload = (
+            {"url": image.url, "width": image.width, "height": image.height} if image else None
+        )
+        return {
+            "id": str(user.id),
+            "nickname": user.nickname,
+            "username": user.username,
+            "intro": user.intro,
+            "region": user.region,
+            "sns_link": user.sns_link,
+            "profile_image": image_payload,
         }
 
 
