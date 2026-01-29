@@ -101,6 +101,12 @@ class GlobalSearchMessageSerializer(MessageSerializer):
     data = GlobalSearchResponseSerializer()
 
 
+class BaseImageUploadResponseSerializer(MessageSerializer):
+    """이미지 업로드 응답 래퍼."""
+
+    data = BaseImageUploadSerializer()
+
+
 class HomePostSerializer(PostSearchSerializer):
     """홈 인기글 요약."""
 
@@ -124,3 +130,15 @@ class HomeBuildSerializer(BuildSearchSerializer):
             "id": str(owner.id),
             "name": owner.nickname or owner.username,
         }
+
+
+class HomeDataSerializer(serializers.Serializer):
+    """홈 응답 데이터."""
+
+    posts = HomePostSerializer(many=True)
+
+
+class HomeResponseSerializer(MessageSerializer):
+    """홈 응답 래퍼."""
+
+    data = HomeDataSerializer()

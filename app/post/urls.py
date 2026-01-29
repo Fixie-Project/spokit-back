@@ -1,7 +1,7 @@
 """API routes for post-related actions."""
 from django.urls import path
 
-from . import views
+from . import api as views
 
 app_name = "post"
 

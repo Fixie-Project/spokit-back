@@ -18,8 +18,10 @@ from app.user.models import User
 from app.bike.models import BikeBuild
 from app.core.serializers import (
     BaseImageUploadSerializer,
+    BaseImageUploadResponseSerializer,
     BuildSearchSerializer,
     GlobalSearchMessageSerializer,
+    HomeResponseSerializer,
     HomeBuildSerializer,
     HomePostSerializer,
     PostSearchSerializer,
@@ -41,7 +43,7 @@ class BaseImageUploadView(views.APIView):
         summary="이미지 메타데이터 등록",
         description="S3 등에 업로드된 이미지의 메타데이터(url, s3_key 등)를 등록하고 id를 반환합니다.",
         request=BaseImageUploadSerializer,
-        responses=BaseImageUploadSerializer,
+        responses=BaseImageUploadResponseSerializer,
     )
     def post(self, request, *args, **kwargs):
         serializer = BaseImageUploadSerializer(data=request.data)
@@ -67,7 +69,7 @@ class BaseImageFileUploadView(views.APIView):
         tags=["Images"],
         summary="이미지 파일 업로드",
         description="multipart/form-data로 파일을 업로드하고 BaseImage 메타를 반환합니다.",
-        responses=BaseImageUploadSerializer,
+        responses=BaseImageUploadResponseSerializer,
     )
     def post(self, request, *args, **kwargs):
         upload = request.FILES.get("file")
@@ -210,6 +212,7 @@ class HomeAPIView(views.APIView):
     @extend_schema(
         tags=["Home", PUBLIC_TAG],
         summary="홈 데이터 조회",
+        responses=HomeResponseSerializer,
         examples=[
             OpenApiExample(
                 "Home response",

@@ -102,6 +102,54 @@ class StaffSerializer(serializers.ModelSerializer):
         return instance
 
 
+class MessageSerializer(serializers.Serializer):
+    """응답 메시지 래퍼."""
+
+    message = serializers.CharField()
+
+
+class GoogleOAuthDataSerializer(serializers.Serializer):
+    """Google OAuth 로그인 응답 데이터."""
+
+    refresh = serializers.CharField()
+    access = serializers.CharField()
+    nickname = serializers.CharField()
+    email = serializers.EmailField()
+    role = serializers.CharField()
+    is_new = serializers.BooleanField()
+
+
+class GoogleOAuthResponseSerializer(MessageSerializer):
+    """Google OAuth 로그인 응답 래퍼."""
+
+    data = GoogleOAuthDataSerializer()
+
+
+class UserProfileResponseSerializer(MessageSerializer):
+    """내 프로필 응답 래퍼."""
+
+    data = UserProfileSerializer()
+
+
+class UserProfileStatsSerializer(serializers.Serializer):
+    """내 프로필 통계."""
+
+    total = serializers.IntegerField()
+    by_status = serializers.DictField(child=serializers.IntegerField())
+
+
+class UserProfileStatsResponseSerializer(MessageSerializer):
+    """프로필 통계 응답 래퍼."""
+
+    data = UserProfileStatsSerializer()
+
+
+class StaffResponseSerializer(MessageSerializer):
+    """운영진 정보 응답 래퍼."""
+
+    data = StaffSerializer()
+
+
 
 class PublicUserProfileSerializer(serializers.ModelSerializer):
     """공개용 사용자 프로필."""
@@ -130,3 +178,9 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             "width": image.width,
             "height": image.height,
         }
+
+
+class PublicUserProfileResponseSerializer(MessageSerializer):
+    """공개 프로필 응답 래퍼."""
+
+    data = PublicUserProfileSerializer()

@@ -97,3 +97,83 @@ class PostStudioSerializer(PostSerializer):
     class Meta(PostSerializer.Meta):
         fields = PostSerializer.Meta.fields + ["view_count"]
         read_only_fields = PostSerializer.Meta.read_only_fields + ("view_count",)
+
+
+class MessageSerializer(serializers.Serializer):
+    """응답 메시지 래퍼."""
+
+    message = serializers.CharField()
+
+
+class StudioSubmissionListResponseSerializer(MessageSerializer):
+    """운영진 신청서 목록 응답."""
+
+    data = SubmissionPreviewSerializer(many=True)
+
+
+class StudioSubmissionDetailDataSerializer(serializers.Serializer):
+    """운영진 신청서 상세 래퍼 데이터."""
+
+    submission = StudioSubmissionSerializer()
+
+
+class StudioSubmissionDetailResponseSerializer(MessageSerializer):
+    """운영진 신청서 상세 응답."""
+
+    data = StudioSubmissionDetailDataSerializer()
+
+
+class StudioSubmissionUpdateResponseSerializer(MessageSerializer):
+    """운영진 신청서 수정/상태 변경 응답."""
+
+    data = StudioSubmissionSerializer()
+
+
+class StudioPostListResponseSerializer(MessageSerializer):
+    """운영진 게시글 목록 응답."""
+
+    data = PostStudioSerializer(many=True)
+
+
+class StudioPostDetailDataSerializer(serializers.Serializer):
+    """운영진 게시글 상세 래퍼 데이터."""
+
+    post = PostStudioSerializer()
+
+
+class StudioPostDetailResponseSerializer(MessageSerializer):
+    """운영진 게시글 상세 응답."""
+
+    data = StudioPostDetailDataSerializer()
+
+
+class StudioPostResponseSerializer(MessageSerializer):
+    """운영진 게시글 생성/수정 응답."""
+
+    data = PostStudioSerializer()
+
+
+class StudioDashboardDataSerializer(serializers.Serializer):
+    """대시보드 응답 데이터."""
+
+    total_pending = serializers.IntegerField()
+    total_posting = serializers.IntegerField()
+    pending = SubmissionSerializer(many=True)
+    posting = SubmissionSerializer(many=True)
+    pending_top = SubmissionSummarySerializer(many=True)
+    posting_top = SubmissionSummarySerializer(many=True)
+    status_counts = serializers.DictField(child=serializers.IntegerField())
+    post_status_counts = serializers.DictField(child=serializers.IntegerField())
+    total_published_posts = serializers.IntegerField()
+    total_working_posts = serializers.IntegerField()
+    total_draft_posts = serializers.IntegerField()
+    total_rejected_submissions = serializers.IntegerField()
+    total_pending_submissions = serializers.IntegerField()
+    working_posts = PostSummarySerializer(many=True)
+    stats_last_updated = serializers.DateTimeField()
+
+
+class StudioDashboardResponseSerializer(MessageSerializer):
+    """대시보드 응답 래퍼."""
+
+    data = StudioDashboardDataSerializer()

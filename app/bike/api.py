@@ -12,6 +12,7 @@ from .models import Bike, BikeBuild
 from .serializers import (
     BikeBuildDetailResponseSerializer,
     BikeBuildDetailSerializer,
+    BikeBuildArchiveResponseSerializer,
     BikeBuildListResponseSerializer,
     BikeBuildSerializer,
     BikeBuildWriteSerializer,
@@ -315,7 +316,23 @@ class BikeBuildArchiveListView(APIView):
     @extend_schema(
         tags=["Bike Builds", PUBLIC_TAG],
         summary="전체 공개 빌드 목록",
-        responses=BikeBuildListResponseSerializer,
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                location=OpenApiParameter.QUERY,
+                description="페이지 크기(기본 10, 최대 50)",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="offset",
+                location=OpenApiParameter.QUERY,
+                description="시작 오프셋",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses=BikeBuildArchiveResponseSerializer,
         examples=_build_examples(),
     )
     def get(self, request):

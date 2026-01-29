@@ -269,3 +269,18 @@ class BikeBuildListResponseSerializer(MessageSerializer):
 
 class BikeBuildDetailResponseSerializer(MessageSerializer):
     data = BikeBuildDetailSerializer()
+
+
+class BikeBuildArchiveDataSerializer(serializers.Serializer):
+    """공개 아카이브 목록 응답 데이터."""
+
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = BikeBuildSerializer(many=True)
+
+
+class BikeBuildArchiveResponseSerializer(MessageSerializer):
+    """공개 아카이브 응답 래퍼."""
+
+    data = BikeBuildArchiveDataSerializer()
