@@ -1,6 +1,6 @@
 # 소개 신청서 작성 페이지 예시
 
-React + Axios로 `POST /api/submissions/` 및 `POST /api/submissions/<id>/submit/` 를 호출하는 간단한 폼 예시입니다. TipTap이나 기타 에디터를 연결할 수도 있지만, 여기서는 질문-답변 텍스트와 이미지 URL 배열을 입력받는 기본 흐름만 보여줍니다.
+React + Axios로 `POST /api/submissions/` 및 `POST /api/submissions/<id>/submit/` 를 호출하는 간단한 폼 예시입니다. TipTap이나 기타 에디터를 연결할 수도 있지만, 여기서는 질문-답변 텍스트와 이미지 URL 배열을 입력받는 기본 흐름만 보여줍니다. 응답은 `{"message": "...", "data": ...}` 래퍼 형태입니다.
 
 ```tsx
 import { useState } from "react";
@@ -18,6 +18,7 @@ export function SubmissionForm() {
     { question_id: "intro_1", answer: "" },
   ]);
   const [frameName, setFrameName] = useState("");
+  const [buildId, setBuildId] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleBlockChange = (index: number, field: keyof StoryBlock, value: string) => {
@@ -37,14 +38,18 @@ export function SubmissionForm() {
       const payload = {
         title,
         story_blocks: storyBlocks,
-        build_snapshot: { frame_name: frameName },
+        ...(buildId
+          ? { build_id: buildId }
+          : { build_snapshot: { frame_name: frameName } }),
       };
       const response = await axios.post("/api/submissions/", payload, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
-      setStatusMessage(`초안이 저장되었습니다. ID: ${response.data.id}`);
+      setStatusMessage(
+        `${response.data.message} ID: ${response.data.data.id}`
+      );
     } catch (error: any) {
       setStatusMessage(error.response?.data?.message ?? "저장 실패");
     }
@@ -63,6 +68,12 @@ export function SubmissionForm() {
         placeholder="프레임 이름"
         value={frameName}
         onChange={(e) => setFrameName(e.target.value)}
+      />
+      <input
+        className="border p-2 w-full"
+        placeholder="기존 빌드 ID (있으면 입력)"
+        value={buildId}
+        onChange={(e) => setBuildId(e.target.value)}
       />
 
       {storyBlocks.map((block, index) => (
@@ -102,4 +113,5 @@ export function SubmissionForm() {
 
 - 저장 후 `SubmissionViewSet.submit` 엔드포인트(`/api/submissions/<id>/submit/`)를 호출하면 접수 상태(`submitted`)로 전환할 수 있습니다.
 - 스토리 블록마다 이미지 업로드가 필요하다면 입력 값 대신 파일 업로드 컴포넌트를 연결하고, 업로드된 URL을 `images` 배열에 채워 넣으면 됩니다.
+- `build_id`(내 빌드) 또는 `new_build_payload`(새 자전거+빌드 생성) 중 하나를 사용할 수 있습니다. 둘 다 없다면 `build_snapshot` 제공이 필요합니다.
 - `build_snapshot`은 사용자가 신청 시 선택하거나 입력한 자전거/빌드 정보를 JSON 형태로 넣어주면 되고, 추후 Post 생성 시 자동으로 활용됩니다.

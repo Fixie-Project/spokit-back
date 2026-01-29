@@ -1,6 +1,6 @@
 # TipTap 기반 포스트 작성 페이지 예시
 
-다음 예시는 React + Vite(또는 Next.js) 환경에서 [@tiptap/react](https://tiptap.dev/)를 이용해 포스트 작성 페이지를 구성하고, Spokit 백엔드의 `/api/posts/` API로 콘텐츠를 업로드하는 흐름을 보여줍니다. 실제 프로젝트에서는 상태 관리, 에러 처리, 인증 토큰 주입 등을 프로젝트 규칙에 맞게 보완하세요.
+다음 예시는 React + Vite(또는 Next.js) 환경에서 [@tiptap/react](https://tiptap.dev/)를 이용해 포스트 작성 페이지를 구성하고, Spokit 백엔드의 운영진 전용 `/api/studio/posts/` API로 콘텐츠를 업로드하는 흐름을 보여줍니다. 실제 프로젝트에서는 상태 관리, 에러 처리, 인증 토큰 주입 등을 프로젝트 규칙에 맞게 보완하세요.
 
 ## 1. 설치
 
@@ -18,7 +18,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import axios from "axios";
 
-const API_ENDPOINT = "/api/posts/"; // 백엔드 프록시/도메인에 맞게 수정
+const API_ENDPOINT = "/api/studio/posts/"; // 운영진 전용 엔드포인트
 
 export function PostEditor() {
   const [title, setTitle] = useState("");
@@ -26,6 +26,9 @@ export function PostEditor() {
   const [status, setStatus] = useState("draft");
   const [frameBrand, setFrameBrand] = useState("");
   const [frameType, setFrameType] = useState("Alloy");
+  const [bikeId, setBikeId] = useState("");
+  const [buildId, setBuildId] = useState("");
+  const [submissionId, setSubmissionId] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,13 +46,18 @@ export function PostEditor() {
       const payload = {
         main_title: title,
         sub_title: subTitle,
-        content_md: editor.getHTML(),
+        content_md: editor.getText(),
         content_html: editor.getHTML(),
         content_json: editor.getJSON(),
         frame_brand: frameBrand,
         frame_type: frameType,
         slug: title.toLowerCase().replace(/\s+/g, "-"),
         status,
+        bike: bikeId,
+        build: buildId,
+        ...(submissionId ? { submission: submissionId } : {}),
+        // tags: ["<tag_uuid>"],
+        // images: [{ base_image: "<base_image_id>", purpose: "body", order: 0, caption: "" }],
       };
 
       await axios.post(API_ENDPOINT, payload, {
@@ -65,7 +73,7 @@ export function PostEditor() {
     } finally {
       setSubmitting(false);
     }
-  }, [editor, title, subTitle, status, frameBrand, frameType]);
+  }, [editor, title, subTitle, status, frameBrand, frameType, bikeId, buildId, submissionId]);
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4">
@@ -113,6 +121,37 @@ export function PostEditor() {
             <option value="Titanium">Titanium</option>
           </select>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium">Bike ID</label>
+          <input
+            className="w-full border rounded p-2"
+            value={bikeId}
+            onChange={(e) => setBikeId(e.target.value)}
+            placeholder="bike UUID"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Build ID</label>
+          <input
+            className="w-full border rounded p-2"
+            value={buildId}
+            onChange={(e) => setBuildId(e.target.value)}
+            placeholder="build UUID"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium">Submission ID (선택)</label>
+        <input
+          className="w-full border rounded p-2"
+          value={submissionId}
+          onChange={(e) => setSubmissionId(e.target.value)}
+          placeholder="approved submission UUID"
+        />
       </div>
 
       <div>
@@ -174,8 +213,10 @@ export default function PostWritePage() {
 ```
 
 ## 4. 주의사항
+- `/api/studio/posts/`는 Editor/Admin 권한이 필요합니다.
 - 인증 토큰은 로컬 저장소 대신 안전한 상태 관리/쿠키를 사용하세요.
-- 파일 업로드나 이미지 삽입은 TipTap Extension(Image/StarterKit)으로 확장할 수 있습니다.
+- `bike`, `build`는 필수이며, `submission`을 연결하려면 `approved` 상태여야 합니다.
+- 이미지 첨부는 `/api/images/` 또는 `/api/images/upload/`로 `BaseImage.id`를 받은 뒤 `images` 배열로 전달합니다.
 - 게시글 저장 시 `slug` 충돌 처리, `tags`, `is_editor_pick` 등 추가 필드를 API 스펙에 맞게 더 붙이면 됩니다.
 
 이 예시를 기반으로, Spokit 백엔드에서 요구하는 필드를 갖춘 실제 작성 페이지를 빠르게 구성할 수 있습니다.
