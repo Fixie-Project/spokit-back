@@ -47,17 +47,6 @@ def submission(applicant):
 
 
 @pytest.fixture
-def submission_payload():
-    return {
-        "title": "My Story",
-        "build_snapshot": {"frame_name": "Midnight"},
-        "story_blocks": [
-            {"question_id": "intro_1", "answer": "픽시 입문"},
-        ],
-    }
-
-
-@pytest.fixture
 def bike(applicant):
     return Bike.objects.create(owner=applicant, frame_name="Affinity", name="My Bike")
 
@@ -118,30 +107,63 @@ def test_reject_with_reason_stores_fields(api_client, editor, submission):
 
 
 @pytest.mark.django_db
-def test_outro_requires_at_least_one_answer(api_client, applicant, submission_payload):
+def test_submit_requires_outro_group(api_client, applicant):
     api_client.force_authenticate(user=applicant)
     url = reverse("submission-list")
+    payload = {
+        "title": "My Story",
+        "build_snapshot": {"frame_name": "Midnight"},
+        "story_blocks": [
+            {"question_id": "me_1", "answer": "자기소개"},
+            {"question_id": "final_1", "answer": "내 스포킷"},
+            {"question_id": "intro_1", "answer": "입문 계기"},
+            {"question_id": "prod_1", "answer": "조립 시작"},
+            {"question_id": "exper_1", "answer": "첫 라이딩"},
+        ],
+    }
 
-    response = api_client.post(url, data=submission_payload, format="json")
+    response = api_client.post(url, data=payload, format="json")
 
-    assert response.status_code == 400
-    assert "story_blocks" in response.data
+    assert response.status_code == 201
+    submission_id = response.json()["data"]["id"]
+
+    submit_url = reverse("submission-submit", kwargs={"pk": submission_id})
+    submit_response = api_client.post(submit_url, format="json")
+
+    assert submit_response.status_code == 400
+    body = submit_response.json()
+    assert body["code"] == "SUBMISSION_NOT_READY"
+    assert body["data"]["missing_groups"] == ["outro"]
+    assert body["data"]["need_more_optional_answers"] == 0
 
 
 @pytest.mark.django_db
-def test_outro_requirement_passes_when_answered(api_client, applicant, submission_payload):
+def test_submit_passes_when_requirements_met(api_client, applicant):
     api_client.force_authenticate(user=applicant)
     url = reverse("submission-list")
+    payload = {
+        "title": "My Story",
+        "build_snapshot": {"frame_name": "Midnight"},
+        "story_blocks": [
+            {"question_id": "me_1", "answer": "자기소개"},
+            {"question_id": "final_1", "answer": "내 스포킷"},
+            {"question_id": "intro_1", "answer": "입문 계기"},
+            {"question_id": "prod_1", "answer": "조립 시작"},
+            {"question_id": "outro_2", "answer": "좋은 라이딩"},
+        ],
+    }
 
-    submission_payload["story_blocks"].append(
-        {"question_id": "outro_2", "answer": "좋은 라이딩"}
-    )
-
-    response = api_client.post(url, data=submission_payload, format="json")
+    response = api_client.post(url, data=payload, format="json")
 
     assert response.status_code == 201
-    data = response.json()["data"]
-    assert data["title"] == submission_payload["title"]
+    submission_id = response.json()["data"]["id"]
+
+    submit_url = reverse("submission-submit", kwargs={"pk": submission_id})
+    submit_response = api_client.post(submit_url, format="json")
+
+    assert submit_response.status_code == 200
+    data = submit_response.json()["data"]
+    assert data["status"] == SubmissionStatus.SUBMITTED
 
 
 @pytest.mark.django_db

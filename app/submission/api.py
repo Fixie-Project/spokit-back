@@ -19,6 +19,7 @@ from .serializers import (
     SubmissionListResponseSerializer,
     SubmissionRejectSerializer,
     SubmissionSerializer,
+    SubmissionValidationResponseSerializer,
 )
 from .services import change_submission_status, ensure_post_for_submission
 
@@ -26,6 +27,45 @@ PUBLIC_TAG = "Public"
 
 EDITABLE_STATUSES = {SubmissionStatus.DRAFT, SubmissionStatus.REJECTED}
 DELETABLE_STATUSES = {SubmissionStatus.DRAFT, SubmissionStatus.REJECTED}
+
+
+def _get_submission_validation_details(submission: Submission) -> dict:
+    question_set = load_question_set()
+    story_blocks = submission.story_blocks or []
+    answered_ids = {
+        block.get("question_id")
+        for block in story_blocks
+        if isinstance(block, dict) and block.get("question_id")
+    }
+
+    required_ids_ordered = [
+        question["id"]
+        for question in question_set.questions
+        if question.get("required") and question.get("id")
+    ]
+    required_id_set = set(required_ids_ordered)
+    missing_required_ids = [qid for qid in required_ids_ordered if qid not in answered_ids]
+
+    missing_groups: list[str] = []
+    required_groups = question_set.metadata.get("require_one_from_groups", [])
+    for group_key in required_groups:
+        group_ids = {
+            question["id"]
+            for question in question_set.groups.get(group_key, [])
+            if question.get("id")
+        }
+        if group_ids and not (answered_ids & group_ids):
+            missing_groups.append(group_key)
+
+    optional_ids = {qid for qid in answered_ids if qid and qid not in required_id_set}
+    need_more_optional_answers = max(0, 3 - len(optional_ids))
+
+    return {
+        "missing_required_ids": missing_required_ids,
+        "missing_groups": missing_groups,
+        "need_more_optional_answers": need_more_optional_answers,
+    }
+
 
 def _submission_examples():
     return [
@@ -207,6 +247,18 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def submit(self, request, pk=None):
         submission = self.get_object()
+        validation = _get_submission_validation_details(submission)
+        if (
+            validation["missing_required_ids"]
+            or validation["missing_groups"]
+            or validation["need_more_optional_answers"] > 0
+        ):
+            return error_response(
+                "제출 조건을 만족하지 않습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="SUBMISSION_NOT_READY",
+                data=validation,
+            )
         change_submission_status(
             submission,
             to_status=SubmissionStatus.SUBMITTED,
@@ -237,6 +289,18 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def resubmit(self, request, pk=None):
         submission = self.get_object()
+        validation = _get_submission_validation_details(submission)
+        if (
+            validation["missing_required_ids"]
+            or validation["missing_groups"]
+            or validation["need_more_optional_answers"] > 0
+        ):
+            return error_response(
+                "제출 조건을 만족하지 않습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="SUBMISSION_NOT_READY",
+                data=validation,
+            )
         payload = SubmissionCommentSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         change_submission_status(
@@ -249,6 +313,40 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             "신청서를 재접수했습니다.",
             SubmissionSerializer(submission, context={"request": request}).data,
         )
+
+    @extend_schema(
+        tags=["Submissions"],
+        summary="제출 가능 여부 확인",
+        description="신청서가 제출 조건을 만족하는지 검사합니다.",
+        request=None,
+        responses=SubmissionValidationResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Validate response",
+                value={
+                    "message": "제출 가능 여부를 확인했습니다.",
+                    "data": {
+                        "submittable": False,
+                        "missing_required_ids": ["final_1"],
+                        "missing_groups": ["outro"],
+                        "need_more_optional_answers": 2,
+                    },
+                },
+                response_only=True,
+            )
+        ],
+    )
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def validate(self, request, pk=None):
+        submission = self.get_object()
+        validation = _get_submission_validation_details(submission)
+        submittable = (
+            not validation["missing_required_ids"]
+            and not validation["missing_groups"]
+            and validation["need_more_optional_answers"] == 0
+        )
+        payload = {"submittable": submittable, **validation}
+        return success_response("제출 가능 여부를 확인했습니다.", payload)
 
 
 class SubmissionModerationViewSet(viewsets.GenericViewSet):

@@ -12,7 +12,6 @@ from app.bike.serializers import (
 )
 
 from .models import Submission, SubmissionRejectionReason
-from .questions import load_question_set
 from .services import build_to_snapshot
 
 
@@ -91,8 +90,11 @@ class SubmissionSerializer(serializers.ModelSerializer):
         }
 
     def validate_story_blocks(self, value):
-        if not isinstance(value, list) or not value:
+        if not isinstance(value, list):
+            raise serializers.ValidationError("스토리 블록은 리스트 형태여야 합니다.")
+        if not value:
             raise serializers.ValidationError("스토리 블록은 최소 1개 이상이어야 합니다.")
+
         for idx, item in enumerate(value, start=1):
             if not isinstance(item, dict):
                 raise serializers.ValidationError(f"{idx}번째 스토리 블록이 올바른 형식이 아닙니다.")
@@ -100,22 +102,6 @@ class SubmissionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"{idx}번째 블록에 question_id가 필요합니다.")
             if not item.get("answer"):
                 raise serializers.ValidationError(f"{idx}번째 블록에 answer가 필요합니다.")
-
-        question_set = load_question_set()
-        required_groups = question_set.metadata.get("require_one_from_groups", [])
-        if required_groups:
-            answered_ids = {item["question_id"] for item in value if item.get("question_id")}
-            for group_key in required_groups:
-                group_question_ids = {
-                    question["id"]
-                    for question in question_set.groups.get(group_key, [])
-                    if question.get("id")
-                }
-                if group_question_ids and not (answered_ids & group_question_ids):
-                    label = question_set.group_labels.get(group_key, group_key)
-                    raise serializers.ValidationError(
-                        {"story_blocks": f"'{label}' 섹션의 질문 중 최소 1개는 답변이 필요합니다."}
-                    )
         return value
 
     def validate_build_snapshot(self, value):
@@ -241,3 +227,18 @@ class QuestionSetMessageSerializer(MessageSerializer):
     """질문 세트 래퍼."""
 
     data = QuestionSetResponseSerializer()
+
+
+class SubmissionValidationDataSerializer(serializers.Serializer):
+    """제출 가능 여부 응답 데이터."""
+
+    submittable = serializers.BooleanField()
+    missing_required_ids = serializers.ListField(child=serializers.CharField(), required=False)
+    missing_groups = serializers.ListField(child=serializers.CharField(), required=False)
+    need_more_optional_answers = serializers.IntegerField()
+
+
+class SubmissionValidationResponseSerializer(MessageSerializer):
+    """제출 가능 여부 응답 래퍼."""
+
+    data = SubmissionValidationDataSerializer()

@@ -149,8 +149,8 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
     def validate_images(self, value):
         if value is None:
             return value
-        if len(value) > 5:
-            raise serializers.ValidationError("이미지는 최대 5장까지 등록할 수 있습니다.")
+        if len(value) > 9:
+            raise serializers.ValidationError("이미지는 최대 9장까지 등록할 수 있습니다.")
         return value
 
     def create(self, validated_data):

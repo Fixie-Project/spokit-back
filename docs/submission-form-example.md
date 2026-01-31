@@ -113,5 +113,6 @@ export function SubmissionForm() {
 
 - 저장 후 `SubmissionViewSet.submit` 엔드포인트(`/api/submissions/<id>/submit/`)를 호출하면 접수 상태(`submitted`)로 전환할 수 있습니다.
 - 스토리 블록마다 이미지 업로드가 필요하다면 입력 값 대신 파일 업로드 컴포넌트를 연결하고, 업로드된 URL을 `images` 배열에 채워 넣으면 됩니다.
+- 필수 질문을 제외하고 최소 3개 이상의 `story_blocks`가 필요합니다.
 - `build_id`(내 빌드) 또는 `new_build_payload`(새 자전거+빌드 생성) 중 하나를 사용할 수 있습니다. 둘 다 없다면 `build_snapshot` 제공이 필요합니다.
 - `build_snapshot`은 사용자가 신청 시 선택하거나 입력한 자전거/빌드 정보를 JSON 형태로 넣어주면 되고, 추후 Post 생성 시 자동으로 활용됩니다.
