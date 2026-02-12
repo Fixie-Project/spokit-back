@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from app.post.models import Post
+from app.post.models import Post, PostImagePurpose
 from app.post.serializers import PostSerializer
 from app.submission.models import Submission, SubmissionStatus
 from app.submission.serializers import SubmissionSerializer
@@ -64,6 +64,27 @@ class SubmissionPreviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class StudioSubmissionListItemSerializer(serializers.ModelSerializer):
+    """운영진 신청서 목록 전용 요약."""
+
+    rider = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Submission
+        fields = ["id", "title", "status", "created_at", "updated_at", "rider"]
+        read_only_fields = fields
+
+    def get_rider(self, obj: Submission):
+        rider = getattr(obj, "user", None)
+        if not rider:
+            return None
+        return {
+            "id": str(rider.id),
+            "nickname": rider.nickname,
+            "username": rider.username,
+        }
+
+
 class PostSummarySerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     rider = RiderSummarySerializer(read_only=True)
@@ -91,6 +112,79 @@ class PostSummarySerializer(serializers.ModelSerializer):
         return user.nickname or user.username
 
 
+class StudioPostListItemSerializer(serializers.ModelSerializer):
+    """운영진 포스트 목록 전용 요약."""
+
+    thumbnail_image = serializers.SerializerMethodField()
+    rider = serializers.SerializerMethodField()
+    display_date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = [
+            "id",
+            "slug",
+            "thumbnail_image",
+            "main_title",
+            "sub_title",
+            "display_date",
+            "rider",
+        ]
+        read_only_fields = fields
+
+    def get_thumbnail_image(self, obj: Post):
+        images = (
+            getattr(obj, "_prefetched_objects_cache", {}).get("images")
+            if hasattr(obj, "_prefetched_objects_cache")
+            else None
+        )
+        if images is None:
+            images = list(obj.images.all())
+        thumb = next((i for i in images if i.purpose == PostImagePurpose.THUMBNAIL), None)
+        if thumb:
+            return {
+                "url": thumb.url,
+                "purpose": thumb.purpose,
+                "order": thumb.order,
+                "caption": thumb.caption,
+            }
+        priority = {
+            PostImagePurpose.HEADER: 0,
+            PostImagePurpose.HERO: 1,
+            PostImagePurpose.BODY: 2,
+        }
+        sorted_imgs = sorted(images, key=lambda i: (priority.get(i.purpose, 99), i.order))
+        if sorted_imgs:
+            img = sorted_imgs[0]
+            return {
+                "url": img.url,
+                "purpose": img.purpose,
+                "order": img.order,
+                "caption": img.caption,
+            }
+        return None
+
+    def get_rider(self, obj: Post):
+        rider = getattr(obj, "rider", None)
+        if rider:
+            return {
+                "id": str(rider.id),
+                "nickname": rider.nickname,
+                "username": rider.username,
+            }
+        snapshot = getattr(obj, "rider_snapshot", None) or {}
+        if not snapshot:
+            return None
+        return {
+            "id": snapshot.get("id"),
+            "nickname": snapshot.get("nickname"),
+            "username": snapshot.get("username"),
+        }
+
+    def get_display_date(self, obj: Post):
+        return obj.published_at or obj.updated_at
+
+
 class PostStudioSerializer(PostSerializer):
     """운영진 전용 게시글 직렬화기."""
 
@@ -108,7 +202,7 @@ class MessageSerializer(serializers.Serializer):
 class StudioSubmissionListResponseSerializer(MessageSerializer):
     """운영진 신청서 목록 응답."""
 
-    data = SubmissionPreviewSerializer(many=True)
+    data = StudioSubmissionListItemSerializer(many=True)
 
 
 class StudioSubmissionDetailDataSerializer(serializers.Serializer):
@@ -132,7 +226,7 @@ class StudioSubmissionUpdateResponseSerializer(MessageSerializer):
 class StudioPostListResponseSerializer(MessageSerializer):
     """운영진 게시글 목록 응답."""
 
-    data = PostStudioSerializer(many=True)
+    data = StudioPostListItemSerializer(many=True)
 
 
 class StudioPostDetailDataSerializer(serializers.Serializer):

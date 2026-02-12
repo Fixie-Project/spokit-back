@@ -17,6 +17,7 @@ from .serializers import (
     SubmissionCommentSerializer,
     SubmissionDetailResponseSerializer,
     SubmissionListResponseSerializer,
+    SubmissionListItemSerializer,
     SubmissionRejectSerializer,
     SubmissionSerializer,
     SubmissionValidationResponseSerializer,
@@ -178,7 +179,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = SubmissionListItemSerializer(queryset, many=True, context={"request": request})
         return success_response(
             "신청서를 조회했습니다.",
             {"count": queryset.count(), "results": serializer.data},
@@ -477,7 +478,7 @@ class QuestionSetView(APIView):
                 value={
                     "message": "질문 세트를 조회했습니다.",
                     "data": {
-                        "version": "v1_3",
+                        "version": "v1_6",
                         "title": "Every Spoke Tells a Story",
                         "group_labels": {
                             "me": "It’s Me! · 자기소개",
@@ -487,16 +488,15 @@ class QuestionSetView(APIView):
                             "me": [
                                 {"id": "me_1", "text": "간단히 자신을 소개해주세요.", "required": True}
                             ],
-                            "final": [
-                                {
-                                    "id": "final_1",
-                                    "text": "마지막으로, 당신의 스포킷은 무엇인가요?",
-                                    "required": True
-                                }
+                            "outro": [
+                                {"id": "outro_1", "text": "인터뷰를 마치며 느낀 점이 있다면 들려주세요."}
                             ]
                         },
-                        "required_ids": ["me_1", "final_1"],
-                        "non_selectable_groups": ["final", "me"],
+                        "metadata": {
+                            "required_ids": ["me_1"],
+                            "non_selectable_groups": ["me"],
+                            "require_one_from_groups": ["outro"]
+                        },
                     },
                 },
             )
@@ -532,7 +532,7 @@ class UserSubmissionListAPIView(APIView):
             .prefetch_related("images")
             .order_by("-created_at")
         )
-        serializer = SubmissionSerializer(submissions, many=True, context={"request": request})
+        serializer = SubmissionListItemSerializer(submissions, many=True, context={"request": request})
         return success_response(
             "신청서를 조회했습니다.",
             {

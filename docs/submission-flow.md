@@ -19,6 +19,9 @@
 - 반려: `POST /api/submission-workflow/<uuid>/reject/`
 - 운영진 상세/상태 변경: `/api/studio/submissions/<uuid>/`, `/api/studio/submissions/<uuid>/status/`
 
+내 신청서 목록 응답(`data.results`)은 아래 필드만 포함합니다:
+`id`, `title`, `status`, `bike_frame`, `build_title`, `created_at`, `updated_at`
+
 ---
 
 ## 2) 질문 세트 사용법
@@ -27,13 +30,13 @@
 2. 응답의 주요 필드:
    - `groups`: 그룹별 질문 배열
    - `group_labels`: 그룹 라벨
-   - `required_ids`: 필수 질문 id 목록 (있을 경우 반드시 포함)
-   - `metadata.require_one_from_groups`: 해당 그룹 중 최소 1개는 답변 필요
+   - `metadata.required_ids`: 필수 질문 id 목록 (있을 경우 반드시 포함)
+   - `metadata.require_one_from_groups`: 해당 그룹에 대해 최소 1개 답변 필요
 
 프론트는 아래 규칙을 함께 적용해야 합니다:
-- `required_ids`에 포함된 질문은 반드시 답변
-- `required_ids`(예: `me`, `final`)를 제외한 **추가 답변 3개 이상**
-- `require_one_from_groups` 그룹은 각 그룹에서 최소 1개 답변
+- `metadata.required_ids`에 포함된 질문은 반드시 답변 (없으면 `questions[].required == true`로 계산)
+- `metadata.required_ids`를 제외한 **추가 답변 3개 이상**
+- `metadata.require_one_from_groups`에 포함된 그룹만 최소 1개 답변
 
 ---
 
@@ -46,10 +49,12 @@
   "story_blocks": [
     { "question_id": "intro_1", "answer": "답변", "images": [] },
     { "question_id": "me_1", "answer": "답변" },
-    { "question_id": "final_1", "answer": "답변" }
+    { "question_id": "outro_1", "answer": "답변" }
   ]
 }
 ```
+
+`title`은 선택입니다. 미입력 시 서버가 `라이더명 - 빌드명` 형식으로 자동 생성합니다.
 
 `story_blocks` 규칙:
 - 각 블록은 `question_id`, `answer` 필수
@@ -117,7 +122,7 @@ draft -> rejected -> resubmitted -> in_review
   "message": "제출 조건을 만족하지 않습니다.",
   "code": "SUBMISSION_NOT_READY",
   "data": {
-    "missing_required_ids": ["final_1"],
+    "missing_required_ids": ["me_1"],
     "missing_groups": ["outro"],
     "need_more_optional_answers": 2
   }
@@ -145,8 +150,8 @@ draft -> rejected -> resubmitted -> in_review
 
 ## 7) 프론트 체크리스트
 - [ ] 필수 질문 제외 `story_blocks` 3개 이상 보장
-- [ ] `required_ids` 질문은 반드시 포함
-- [ ] `require_one_from_groups` 그룹 조건 체크
+- [ ] `metadata.required_ids` 질문은 반드시 포함 (없으면 `required: true`로 계산)
+- [ ] `metadata.require_one_from_groups` 그룹 조건 체크
 - [ ] 빌드 연결 방식 1개만 선택(`build_id` / `new_build_payload` / `build_snapshot`)
 - [ ] 제출 후 상태 변경 UI 반영(`draft` -> `submitted`)
 - [ ] 반려 시 재신청 버튼 노출 및 `resubmit` 호출

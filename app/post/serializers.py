@@ -6,6 +6,7 @@ from rest_framework import serializers
 from app.core.models import BaseImage
 
 from app.submission.models import Submission
+from app.user.models import UserRole
 
 from .models import Comment, Post, PostImage, PostImagePurpose, PostStatus, Tag
 
@@ -195,6 +196,23 @@ class PostWriteSerializer(serializers.ModelSerializer):
             "tags",
             "images",
         ]
+
+    def _is_staff_user(self, user) -> bool:
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        return getattr(user, "role", None) in {UserRole.EDITOR, UserRole.ADMIN}
+
+    def validate(self, attrs):
+        if "build_snapshot" in attrs:
+            request = self.context.get("request")
+            user = getattr(request, "user", None) if request else None
+            if not self._is_staff_user(user):
+                raise serializers.ValidationError(
+                    {"build_snapshot": "운영진 포스트에서만 수정할 수 있습니다."}
+                )
+        return attrs
 
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])

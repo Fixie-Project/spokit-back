@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping
 
 QUESTION_SETS_DIR = Path(__file__).resolve().parent / "question_sets"
-DEFAULT_QUESTION_VERSION = "v1_3"
+DEFAULT_QUESTION_VERSION = "v1_6"
 
 
 @dataclass(frozen=True)

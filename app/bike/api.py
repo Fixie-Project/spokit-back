@@ -8,12 +8,13 @@ from app.core.pagination import BuildLimitOffsetPagination
 from rest_framework.exceptions import PermissionDenied, NotAuthenticated, ValidationError
 from rest_framework.views import APIView
 
-from .models import Bike, BikeBuild
+from .models import Bike, BikeBuild, BikeBuildLike
 from .serializers import (
     BikeBuildDetailResponseSerializer,
     BikeBuildDetailSerializer,
     BikeBuildArchiveResponseSerializer,
     BikeBuildListResponseSerializer,
+    BikeBuildLikeToggleResponseSerializer,
     BikeBuildSerializer,
     BikeBuildWriteSerializer,
     BikeDetailResponseSerializer,
@@ -111,7 +112,7 @@ class BikeListCreateView(APIView):
         examples=_bike_examples(),
     )
     def get(self, request):
-        queryset = Bike.objects.filter(owner=request.user).prefetch_related("builds")
+        queryset = Bike.objects.filter(owner=request.user).prefetch_related("builds__likes")
         serializer = BikeSerializer(queryset, many=True, context={"request": request})
         return success_response("자전거 목록을 조회했습니다.", serializer.data)
 
@@ -191,7 +192,11 @@ class BikeBuildListCreateView(APIView):
     )
     def get(self, request):
         visibility = _get_visibility(request, default=None)
-        queryset = BikeBuild.objects.filter(base_bike__owner=request.user).select_related("base_bike", "main_image")
+        queryset = (
+            BikeBuild.objects.filter(base_bike__owner=request.user)
+            .select_related("base_bike", "main_image")
+            .prefetch_related("likes")
+        )
 
         if visibility == "public":
             queryset = queryset.filter(is_public=True)
@@ -233,7 +238,7 @@ class BikeBuildDetailView(APIView):
 
     def _get_object(self, build_id: str) -> BikeBuild:
         return get_object_or_404(
-            BikeBuild.objects.select_related("base_bike", "main_image").prefetch_related("images__image"),
+            BikeBuild.objects.select_related("base_bike", "main_image").prefetch_related("images__image", "likes"),
             pk=build_id,
         )
 
@@ -339,6 +344,7 @@ class BikeBuildArchiveListView(APIView):
         queryset = (
             BikeBuild.objects.filter(is_public=True)
             .select_related("base_bike", "main_image")
+            .prefetch_related("likes")
             .order_by("-created_at")
         )
         paginator = self.pagination_class()
@@ -354,3 +360,44 @@ class BikeBuildArchiveListView(APIView):
             return success_response("공개 빌드 목록을 조회했습니다.", payload)
         serializer = BikeBuildSerializer(queryset, many=True, context={"request": request})
         return success_response("공개 빌드 목록을 조회했습니다.", serializer.data)
+
+
+class BikeBuildLikeToggleAPIView(APIView):
+    """자전거 빌드 좋아요 토글."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        tags=["Bike Builds"],
+        summary="자전거 빌드 좋아요 토글",
+        responses=BikeBuildLikeToggleResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Like response",
+                value={
+                    "message": "좋아요 상태를 변경했습니다.",
+                    "data": {"liked": True, "like_count": 12},
+                },
+                response_only=True,
+            )
+        ],
+    )
+    def post(self, request, build_id: str):
+        build = get_object_or_404(
+            BikeBuild.objects.select_related("base_bike"),
+            pk=build_id,
+        )
+        is_owner = build.base_bike.owner_id == request.user.id
+        if not build.is_public and not is_owner:
+            raise PermissionDenied("이 빌드에 좋아요를 누를 수 없습니다.")
+
+        like, created = BikeBuildLike.objects.get_or_create(build=build, user=request.user)
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+        return success_response(
+            "좋아요 상태를 변경했습니다.",
+            {"liked": liked, "like_count": build.likes.count()},
+        )

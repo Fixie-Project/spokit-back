@@ -81,6 +81,27 @@ class BikeBuild(BaseModel):
         return self.title or f"Build of {self.base_bike_id}"
 
 
+class BikeBuildLike(BaseModel):
+    """사용자별 빌드 좋아요 기록."""
+
+    build = models.ForeignKey(
+        BikeBuild,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    user = models.ForeignKey(
+        "user.User",
+        on_delete=models.CASCADE,
+        related_name="build_likes",
+    )
+
+    class Meta:
+        db_table = "bike_build_like"
+        verbose_name = "빌드 좋아요"
+        verbose_name_plural = "빌드 좋아요"
+        unique_together = ("build", "user")
+
+
 class BuildImage(BaseModel):
     """빌드에 연결되는 추가 이미지."""
 

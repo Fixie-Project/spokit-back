@@ -155,6 +155,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
     """공개용 사용자 프로필."""
 
     profile_image = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -162,6 +163,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             "id",
             "nickname",
             "username",
+            "is_username_public",
             "intro",
             "region",
             "sns_link",
@@ -178,6 +180,11 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             "width": image.width,
             "height": image.height,
         }
+
+    def get_username(self, obj: User):
+        if not obj.is_username_public:
+            return None
+        return obj.username
 
 
 class PublicUserProfileResponseSerializer(MessageSerializer):

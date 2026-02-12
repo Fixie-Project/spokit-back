@@ -10,8 +10,7 @@
     "detail": "디테일 · 시각 포인트",
     "journey": "의미 · 변화",
     "bonus": "보너스",
-    "outro": "마무리",
-    "final": "당신의 스포킷"
+    "outro": "마무리"
   },
   "sections": {
     "me": { "lead": "당신에 대한 간단한 소개로 인터뷰를 시작합니다." },
@@ -21,8 +20,7 @@
     "detail": { "lead": "당신의 픽시를 특별하게 만드는 디테일을 설명해주세요." },
     "journey": { "lead": "이 픽시가 당신에게 남긴 변화와 앞으로의 방향을 이야기해보세요." },
     "bonus": { "lead": "원하는 경우 선택해 답할 수 있는 추가 질문입니다." },
-    "outro": { "lead": "이 인터뷰를 마무리하며 남기고 싶은 말을 적어주세요." },
-    "final": { "lead": "Spokit을 한 문장으로 정의해주세요." }
+    "outro": { "lead": "이 인터뷰를 마무리하며 남기고 싶은 말을 적어주세요." }
   },
   "cta": {
     "primary": "이야기 저장하기",
@@ -34,7 +32,7 @@
   "share": {
     "template": "내 스포킷은 ____ 입니다. #Spokit #픽시인터뷰"
   },
-  "non_selectable_groups": ["final", "me"],
+  "non_selectable_groups": ["me"],
   "require_one_from_groups": ["outro"],
   "groups": {
     "me": [
@@ -49,10 +47,7 @@
       {
         "id": "intro_1",
         "text": "픽시를 타기 시작한 계기나 이 문화에 끌린 이유가 있나요?",
-        "placeholder": "처음 픽시를 접한 순간이나 매력적으로 느껴졌던 이유를 적어주세요.",
-        "default": true,
-        "required": false,
-        "non_deletable": false
+        "placeholder": "처음 픽시를 접한 순간이나 매력적으로 느껴졌던 이유를 적어주세요."
       },
       {
         "id": "intro_2",
@@ -306,15 +301,7 @@
         "text": "독자에게 남기고 싶은 말이 있다면?",
         "placeholder": "짧은 인사나 메시지를 적어주세요."
       }
-    ],
-    "final": [
-      {
-        "id": "final_1",
-        "text": "마지막으로, 당신의 스포킷을 한 문장으로 적어주세요.",
-        "placeholder": "당신의 픽시와 여정을 가장 잘 담아내는 한 문장을 적어주세요.",
-        "required": true
-      }
     ]
   },
-  "required_ids": ["me_1", "final_1"]
+  "required_ids": ["me_1"]
 }

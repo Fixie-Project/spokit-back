@@ -5,11 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from app.bike.models import Bike, BikeBuild
-from app.bike.serializers import (
-    BikeSerializer,
-    BikeBuildSerializer,
-    BikeBuildWriteSerializer,
-)
+from app.bike.serializers import BikeBuildWriteSerializer
 
 from .models import Submission, SubmissionRejectionReason
 from .services import build_to_snapshot
@@ -48,8 +44,6 @@ class SubmissionNewBuildPayloadSerializer(serializers.Serializer):
 class SubmissionSerializer(serializers.ModelSerializer):
     """신청서 직렬화기."""
 
-    bike = BikeSerializer(read_only=True)
-    build = BikeBuildSerializer(read_only=True)
     story_blocks = serializers.ListField(child=StoryBlockSerializer(), allow_empty=False)
     build_snapshot = serializers.DictField(allow_empty=True, required=False)
     rider_snapshot = serializers.DictField(read_only=True)
@@ -61,8 +55,6 @@ class SubmissionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
-            "bike",
-            "build",
             "title",
             "build_snapshot",
             "story_blocks",
@@ -85,6 +77,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         extra_kwargs = {
+            "title": {"required": False, "allow_blank": True},
             "build_id": {"write_only": True},
             "new_build_payload": {"write_only": True},
         }
@@ -124,6 +117,27 @@ class SubmissionSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    def _compose_title(
+        self,
+        user,
+        *,
+        build: BikeBuild | None,
+        build_snapshot: dict | None,
+    ) -> str:
+        nickname = getattr(user, "nickname", "") or getattr(user, "username", "") or "라이더"
+        build_title = ""
+        if build and build.title:
+            build_title = build.title
+        elif isinstance(build_snapshot, dict):
+            build_info = build_snapshot.get("build", {}) if build_snapshot else {}
+            build_title = build_info.get("title") or ""
+            if not build_title:
+                bike_info = build_snapshot.get("bike", {}) if build_snapshot else {}
+                build_title = bike_info.get("frame_name") or build_snapshot.get("frame_name") or ""
+        if not build_title:
+            build_title = "내 빌드"
+        return f"{nickname} - {build_title}"
+
     def create(self, validated_data):
         user = validated_data.pop("user", None)
         build_id = validated_data.pop("build_id", None)
@@ -158,6 +172,13 @@ class SubmissionSerializer(serializers.ModelSerializer):
             else:
                 validated_data.setdefault("build_snapshot", {})
 
+            if not (validated_data.get("title") or "").strip():
+                validated_data["title"] = self._compose_title(
+                    user,
+                    build=build,
+                    build_snapshot=validated_data.get("build_snapshot"),
+                )
+
             return Submission.objects.create(user=user, **validated_data)
 
     def update(self, instance: Submission, validated_data):
@@ -186,11 +207,49 @@ class MessageSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
+class SubmissionListItemSerializer(serializers.ModelSerializer):
+    """신청서 목록용 요약."""
+
+    bike_frame = serializers.SerializerMethodField()
+    build_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Submission
+        fields = [
+            "id",
+            "title",
+            "status",
+            "bike_frame",
+            "build_title",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_bike_frame(self, obj):
+        if obj.build and getattr(obj.build, "base_bike", None):
+            return obj.build.base_bike.frame_name
+        if obj.bike:
+            return obj.bike.frame_name
+        snapshot = obj.build_snapshot or {}
+        return (
+            snapshot.get("bike", {}).get("frame_name")
+            or snapshot.get("frame_name")
+            or None
+        )
+
+    def get_build_title(self, obj):
+        if obj.build:
+            return obj.build.title
+        snapshot = obj.build_snapshot or {}
+        return snapshot.get("build", {}).get("title") or snapshot.get("build_title") or None
+
+
 class SubmissionListDataSerializer(serializers.Serializer):
     """신청서 목록 응답의 data 영역."""
 
     count = serializers.IntegerField()
-    results = SubmissionSerializer(many=True)
+    results = SubmissionListItemSerializer(many=True)
 
 
 class SubmissionListResponseSerializer(MessageSerializer):

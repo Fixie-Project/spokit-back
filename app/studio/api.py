@@ -23,6 +23,8 @@ from .serializers import (
     MessageSerializer,
     PostSummarySerializer,
     PostStudioSerializer,
+    StudioPostListItemSerializer,
+    StudioSubmissionListItemSerializer,
     StudioSubmissionSerializer,
     SubmissionPreviewSerializer,
     SubmissionStatusUpdateSerializer,
@@ -151,7 +153,7 @@ class StudioSubmissionListAPIView(views.APIView):
         if status_filter:
             qs = qs.filter(status=status_filter)
         qs = qs.order_by("-created_at")
-        serializer = SubmissionPreviewSerializer(qs, many=True, context={"request": request})
+        serializer = StudioSubmissionListItemSerializer(qs, many=True, context={"request": request})
         return success_response("신청서 목록을 조회했습니다.", serializer.data)
 
 
@@ -327,7 +329,7 @@ class StudioPostListAPIView(views.APIView):
             ordering = "-updated_at"
         qs = qs.order_by(ordering)
 
-        serializer = PostStudioSerializer(qs, many=True, context={"request": request})
+        serializer = StudioPostListItemSerializer(qs, many=True, context={"request": request})
         return success_response("게시글 목록을 조회했습니다.", serializer.data)
 
     @extend_schema(

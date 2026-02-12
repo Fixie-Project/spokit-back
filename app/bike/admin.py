@@ -1,7 +1,7 @@
 """바이크 관련 관리자 설정."""
 from django.contrib import admin
 
-from .models import Bike, BikeBuild
+from .models import Bike, BikeBuild, BikeBuildLike
 
 
 class BikeBuildInline(admin.TabularInline):
@@ -23,4 +23,11 @@ class BikeAdmin(admin.ModelAdmin):
 class BikeBuildAdmin(admin.ModelAdmin):
     list_display = ("base_bike", "title", "updated_at")
     search_fields = ("base_bike__frame_name", "title")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(BikeBuildLike)
+class BikeBuildLikeAdmin(admin.ModelAdmin):
+    list_display = ("build", "user", "created_at")
+    search_fields = ("build__title", "user__email", "user__nickname")
     readonly_fields = ("created_at", "updated_at")

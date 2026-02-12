@@ -184,8 +184,8 @@ def test_create_submission_with_existing_build(api_client, applicant, build):
 
     assert response.status_code == 201
     body = response.json()["data"]
-    assert body["build"]["id"] == str(build.id)
-    assert body["bike"]["id"] == str(build.base_bike.id)
+    assert "build" not in body
+    assert "bike" not in body
     assert body["build_snapshot"]["build"]["id"] == str(build.id)
     assert body["build_snapshot"]["bike"]["frame_name"] == build.base_bike.frame_name
 
@@ -220,8 +220,28 @@ def test_create_submission_with_new_build_payload(api_client, applicant):
 
     assert response.status_code == 201
     body = response.json()["data"]
-    assert body["build"]["title"] == "Build Title"
-    assert body["bike"]["frame_name"] == "New Frame"
+    assert "build" not in body
+    assert "bike" not in body
+    assert body["build_snapshot"]["build"]["title"] == "Build Title"
+    assert body["build_snapshot"]["bike"]["frame_name"] == "New Frame"
+
+
+@pytest.mark.django_db
+def test_create_submission_auto_title(api_client, applicant):
+    api_client.force_authenticate(user=applicant)
+    url = reverse("submission-list")
+    payload = {
+        "story_blocks": [
+            {"question_id": "intro_1", "answer": "처음"},
+        ],
+        "build_snapshot": {"frame_name": "Midnight"},
+    }
+
+    response = api_client.post(url, data=payload, format="json")
+
+    assert response.status_code == 201
+    body = response.json()["data"]
+    assert body["title"] == "applicant - Midnight"
 
 
 @pytest.mark.django_db

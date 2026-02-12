@@ -6,6 +6,7 @@ from django.urls import path
 from .api import (
     BikeBuildListCreateView,
     BikeBuildDetailView,
+    BikeBuildLikeToggleAPIView,
     BikeBuildArchiveListView,
     MyBikeBuildDetailView,
     BikeDetailView,
@@ -21,5 +22,6 @@ urlpatterns = [
     path("me/bike-builds/<uuid:build_id>/", MyBikeBuildDetailView.as_view(), name="my-bike-build-detail"),
 
     path("bike-builds/<uuid:build_id>/", BikeBuildDetailView.as_view(), name="bike-build-detail"),
+    path("bike-builds/<uuid:build_id>/like/", BikeBuildLikeToggleAPIView.as_view(), name="bike-build-like"),
     path("public/bike-builds/", BikeBuildArchiveListView.as_view(), name="bike-build-archive"),
 ]

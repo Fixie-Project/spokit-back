@@ -47,6 +47,8 @@ class BikeBuildSerializer(serializers.ModelSerializer):
     base_bike = BikeSummarySerializer(read_only=True)
     main_image_url = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(source="likes.count", read_only=True)
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = BikeBuild
@@ -59,6 +61,8 @@ class BikeBuildSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "main_image_url",
+            "like_count",
+            "is_liked",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
 
@@ -71,6 +75,20 @@ class BikeBuildSerializer(serializers.ModelSerializer):
     def get_owner(self, obj: BikeBuild):
         bike = getattr(obj, "base_bike", None)
         return BikeOwnerPublicSerializer.from_user(getattr(bike, "owner", None))
+
+    def get_is_liked(self, obj: BikeBuild) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        prefetched_likes = (
+            obj._prefetched_objects_cache.get("likes")
+            if hasattr(obj, "_prefetched_objects_cache")
+            else None
+        )
+        if prefetched_likes is not None:
+            return any(like.user_id == user.id for like in prefetched_likes)
+        return obj.likes.filter(user=user).exists()
 
 
 class BikeBuildWriteSerializer(serializers.ModelSerializer):
@@ -206,6 +224,8 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
     base_bike = BikeSummarySerializer(read_only=True)
     main_image = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(source="likes.count", read_only=True)
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = BikeBuild
@@ -220,6 +240,8 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
             "updated_at",
             "main_image",
             "images",
+            "like_count",
+            "is_liked",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
 
@@ -248,6 +270,20 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
             }
             for item in gallery.all()
         ]
+
+    def get_is_liked(self, obj: BikeBuild) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        prefetched_likes = (
+            obj._prefetched_objects_cache.get("likes")
+            if hasattr(obj, "_prefetched_objects_cache")
+            else None
+        )
+        if prefetched_likes is not None:
+            return any(like.user_id == user.id for like in prefetched_likes)
+        return obj.likes.filter(user=user).exists()
 
 
 class MessageSerializer(serializers.Serializer):
@@ -284,3 +320,9 @@ class BikeBuildArchiveResponseSerializer(MessageSerializer):
     """공개 아카이브 응답 래퍼."""
 
     data = BikeBuildArchiveDataSerializer()
+
+
+class BikeBuildLikeToggleResponseSerializer(MessageSerializer):
+    """빌드 좋아요 토글 응답 래퍼."""
+
+    data = serializers.DictField()
