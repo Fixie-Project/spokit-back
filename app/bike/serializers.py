@@ -22,14 +22,13 @@ class BikeOwnerPublicSerializer(serializers.Serializer):
     """공개 목록에서 노출되는 자전거 소유자 요약."""
 
     id = serializers.UUIDField()
-    nickname = serializers.CharField()
     username = serializers.CharField()
 
     @classmethod
     def from_user(cls, user):
         if not user:
             return None
-        return {"id": user.id, "nickname": user.nickname, "username": user.username}
+        return {"id": user.id, "username": user.username}
 
 
 class BikeSummarySerializer(serializers.ModelSerializer):

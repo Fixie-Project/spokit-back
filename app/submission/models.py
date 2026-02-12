@@ -127,8 +127,8 @@ class Submission(BaseModel):
         )
         return {
             "id": str(user.id),
-            "nickname": user.nickname,
             "username": user.username,
+            "riding_since": user.riding_since,
             "intro": user.intro,
             "region": user.region,
             "sns_link": user.sns_link,

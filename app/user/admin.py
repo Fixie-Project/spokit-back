@@ -14,19 +14,19 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        (_("개인 정보"), {"fields": ("username", "nickname", "region", "intro", "sns_link", "profile_image")}),
+        (_("개인 정보"), {"fields": ("username", "riding_since", "region", "intro", "sns_link", "profile_image")}),
         (_("권한"), {"fields": ("role", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         (_("중요 시각"), {"fields": ("last_login", "created_at", "updated_at")}),
     )
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("email", "username", "nickname", "password1", "password2", "role", "is_staff", "is_superuser"),
+            "fields": ("email", "username", "password1", "password2", "role", "is_staff", "is_superuser"),
         }),
     )
-    list_display = ("email", "nickname", "role", "is_active", "is_staff")
+    list_display = ("email", "username", "role", "is_active", "is_staff")
     list_filter = ("role", "is_active", "is_staff", "is_superuser")
-    search_fields = ("email", "nickname", "username")
+    search_fields = ("email", "username")
     ordering = ("email",)
     readonly_fields = ("created_at", "updated_at")
     filter_horizontal = ("groups", "user_permissions")
@@ -38,6 +38,6 @@ class StaffAdmin(admin.ModelAdmin):
 
     list_display = ("user", "role", "contact_email", "is_active", "created_at")
     list_filter = ("role", "is_active")
-    search_fields = ("user__email", "user__nickname", "user__username")
+    search_fields = ("user__email", "user__username")
     autocomplete_fields = ("user",)
     readonly_fields = ("created_at", "updated_at")

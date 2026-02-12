@@ -13,7 +13,14 @@ from app.user.models import User
 class RiderSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "username", "nickname", "region", "intro", "sns_link"]
+        fields = [
+            "id",
+            "username",
+            "riding_since",
+            "region",
+            "intro",
+            "sns_link",
+        ]
         read_only_fields = fields
 
 
@@ -80,7 +87,6 @@ class StudioSubmissionListItemSerializer(serializers.ModelSerializer):
             return None
         return {
             "id": str(rider.id),
-            "nickname": rider.nickname,
             "username": rider.username,
         }
 
@@ -109,7 +115,7 @@ class PostSummarySerializer(serializers.ModelSerializer):
         user = getattr(staff, "user", None) if staff else None
         if not user:
             return None
-        return user.nickname or user.username
+        return user.username
 
 
 class StudioPostListItemSerializer(serializers.ModelSerializer):
@@ -169,7 +175,6 @@ class StudioPostListItemSerializer(serializers.ModelSerializer):
         if rider:
             return {
                 "id": str(rider.id),
-                "nickname": rider.nickname,
                 "username": rider.username,
             }
         snapshot = getattr(obj, "rider_snapshot", None) or {}
@@ -177,7 +182,6 @@ class StudioPostListItemSerializer(serializers.ModelSerializer):
             return None
         return {
             "id": snapshot.get("id"),
-            "nickname": snapshot.get("nickname"),
             "username": snapshot.get("username"),
         }
 

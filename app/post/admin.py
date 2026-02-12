@@ -33,10 +33,10 @@ class PostAdmin(admin.ModelAdmin):
 class CommentAdmin(admin.ModelAdmin):
     list_display = ("post", "user", "created_at")
     list_filter = ("created_at",)
-    search_fields = ("content", "user__nickname", "post__main_title")
+    search_fields = ("content", "user__username", "post__main_title")
 
 
 @admin.register(Like)
 class LikeAdmin(admin.ModelAdmin):
     list_display = ("post", "user", "created_at")
-    search_fields = ("user__nickname", "post__main_title")
+    search_fields = ("user__username", "post__main_title")

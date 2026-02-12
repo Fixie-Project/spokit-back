@@ -46,7 +46,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
 
     story_blocks = serializers.ListField(child=StoryBlockSerializer(), allow_empty=False)
     build_snapshot = serializers.DictField(allow_empty=True, required=False)
-    rider_snapshot = serializers.DictField(read_only=True)
+    rider_snapshot = serializers.SerializerMethodField()
     build_id = serializers.UUIDField(required=False, allow_null=True, write_only=True)
     new_build_payload = SubmissionNewBuildPayloadSerializer(required=False, write_only=True)
 
@@ -102,6 +102,12 @@ class SubmissionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("빌드 스냅샷은 딕셔너리 형식이어야 합니다.")
         return value
 
+    def get_rider_snapshot(self, obj: Submission):
+        snapshot = getattr(obj, "rider_snapshot", None) or {}
+        if not snapshot:
+            return snapshot
+        return {k: v for k, v in snapshot.items() if k != "nickname"}
+
     def validate(self, attrs):
         build_id = attrs.get("build_id")
         new_build_payload = attrs.get("new_build_payload")
@@ -124,7 +130,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
         build: BikeBuild | None,
         build_snapshot: dict | None,
     ) -> str:
-        nickname = getattr(user, "nickname", "") or getattr(user, "username", "") or "라이더"
+        username = getattr(user, "username", "") or getattr(user, "email", "") or "라이더"
         build_title = ""
         if build and build.title:
             build_title = build.title
@@ -136,7 +142,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
                 build_title = bike_info.get("frame_name") or build_snapshot.get("frame_name") or ""
         if not build_title:
             build_title = "내 빌드"
-        return f"{nickname} - {build_title}"
+        return f"{username} - {build_title}"
 
     def create(self, validated_data):
         user = validated_data.pop("user", None)

@@ -116,12 +116,15 @@ class PostSerializer(serializers.ModelSerializer):
         submission: Submission | None = getattr(obj, "submission", None)
         if not submission:
             return None
+        rider_snapshot = getattr(obj, "rider_snapshot", None) or getattr(submission, "rider_snapshot", {}) or {}
+        if rider_snapshot:
+            rider_snapshot = {k: v for k, v in rider_snapshot.items() if k != "nickname"}
         return {
             "id": str(submission.id),
             "status": submission.status,
             "build_snapshot": getattr(obj, "build_snapshot", None) or submission.build_snapshot,
             "story_snapshot": getattr(obj, "story_snapshot", None) or submission.story_blocks,
-            "rider_snapshot": getattr(obj, "rider_snapshot", None) or getattr(submission, "rider_snapshot", {}),
+            "rider_snapshot": rider_snapshot,
         }
 
     def get_author(self, obj: Post):
@@ -130,7 +133,7 @@ class PostSerializer(serializers.ModelSerializer):
             return None
         user = getattr(author, "user", None)
         if user:
-            return {"id": user.id, "nickname": user.nickname or user.username}
+            return {"id": user.id, "username": user.username}
         # 혹시나 Staff에 user가 없을 때도 안전하게 처리
         return None
 

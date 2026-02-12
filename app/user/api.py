@@ -1,8 +1,6 @@
 """사용자 인증 및 마이페이지 관련 API 뷰."""
 from __future__ import annotations
 
-import re
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Count
@@ -69,8 +67,7 @@ class UserProfileAPIView(views.APIView):
                         "id": "a9a5f50e-6f82-4b65-8d2b-fc36bd2f2c1d",
                         "email": "user@example.com",
                         "username": "spokit_user",
-                        "is_username_public": False,
-                        "nickname": "스포킷",
+                        "riding_since": 2018,
                         "region": "Seoul",
                         "intro": "트랙바이크 타는 라이더입니다.",
                         "sns_link": "https://instagram.com/spokit",
@@ -94,7 +91,8 @@ class UserProfileAPIView(views.APIView):
             OpenApiExample(
                 "요청 예시",
                 value={
-                    "nickname": "새닉네임",
+                    "username": "spokit_user",
+                    "riding_since": 2018,
                     "region": "Seoul",
                     "intro": "트랙바이크 타는 라이더입니다.",
                     "sns_link": "https://instagram.com/spokit",
@@ -109,8 +107,7 @@ class UserProfileAPIView(views.APIView):
                         "id": "a9a5f50e-6f82-4b65-8d2b-fc36bd2f2c1d",
                         "email": "user@example.com",
                         "username": "spokit_user",
-                        "is_username_public": False,
-                        "nickname": "새닉네임",
+                        "riding_since": 2018,
                         "region": "Seoul",
                         "intro": "트랙바이크 타는 라이더입니다.",
                         "sns_link": "https://instagram.com/spokit",
@@ -197,27 +194,31 @@ class GoogleOAuthLoginAPIView(views.APIView):
         if not email:
             raise exceptions.AuthenticationFailed("Google 프로필에서 이메일을 확인할 수 없습니다.")
 
-        nickname = id_info.get("name") or email.split("@")[0]
-        nickname = self._generate_unique_nickname(nickname)
+        username = (id_info.get("name") or email.split("@")[0]).strip() or email.split("@")[0]
+        username = username[:50]
 
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
-                "username": nickname,
-                "nickname": nickname,
+                "username": username,
+                "nickname": username,
                 "role": UserRole.USER,
             },
         )
+        if not created and not user.username:
+            user.username = username
+            user.nickname = user.nickname or username
+            user.save(update_fields=["username", "nickname", "updated_at"])
         if created:
             user.set_unusable_password()
             user.save(update_fields=["password"])
 
         refresh = RefreshToken.for_user(user)
-        refresh["nickname"] = user.nickname
+        refresh["username"] = user.username
         refresh["role"] = user.role
 
         access_token = refresh.access_token
-        access_token["nickname"] = user.nickname
+        access_token["username"] = user.username
         access_token["role"] = user.role
 
         return success_response(
@@ -225,21 +226,10 @@ class GoogleOAuthLoginAPIView(views.APIView):
             {
                 "refresh": str(refresh),
                 "access": str(access_token),
-                "nickname": user.nickname,
+                "username": user.username,
                 "email": user.email,
                 "role": user.role,
                 "is_new": created,
             },
             status_code=status.HTTP_200_OK,
         )
-
-    def _generate_unique_nickname(self, base: str) -> str:
-        """닉네임 중복을 피하도록 고유 값을 생성."""
-
-        base_candidate = re.sub(r"[^\w가-힣]+", "", base).strip() or "spokit"
-        candidate = base_candidate
-        counter = 1
-        while User.objects.filter(nickname=candidate).exists():
-            counter += 1
-            candidate = f"{base_candidate}{counter}"
-        return candidate

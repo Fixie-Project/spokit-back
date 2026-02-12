@@ -14,7 +14,7 @@ class BikeBuildInline(admin.TabularInline):
 class BikeAdmin(admin.ModelAdmin):
     list_display = ("frame_name", "owner", "is_posted", "updated_at")
     list_filter = ("is_posted",)
-    search_fields = ("frame_name", "owner__email", "owner__nickname")
+    search_fields = ("frame_name", "owner__email", "owner__username")
     inlines = [BikeBuildInline]
 
 
@@ -29,5 +29,5 @@ class BikeBuildAdmin(admin.ModelAdmin):
 @admin.register(BikeBuildLike)
 class BikeBuildLikeAdmin(admin.ModelAdmin):
     list_display = ("build", "user", "created_at")
-    search_fields = ("build__title", "user__email", "user__nickname")
+    search_fields = ("build__title", "user__email", "user__username")
     readonly_fields = ("created_at", "updated_at")

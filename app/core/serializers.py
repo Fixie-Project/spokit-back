@@ -54,7 +54,7 @@ class RiderSearchSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_name(self, obj: User) -> str:
-        return obj.nickname or obj.username
+        return obj.username
 
     def get_profile_image(self, obj: User):
         image = getattr(obj, "profile_image", None)
@@ -128,7 +128,7 @@ class HomeBuildSerializer(BuildSearchSerializer):
             return None
         return {
             "id": str(owner.id),
-            "name": owner.nickname or owner.username,
+            "name": owner.username,
         }
 
 

@@ -78,6 +78,6 @@ class SubmissionAdmin(admin.ModelAdmin):
 class SubmissionStatusLogAdmin(admin.ModelAdmin):
     list_display = ("submission", "from_status", "to_status", "changed_by_staff", "changed_by_user", "changed_at")
     list_filter = ("to_status", "changed_at")
-    search_fields = ("submission__title", "changed_by_staff__user__nickname", "changed_by_user__nickname")
+    search_fields = ("submission__title", "changed_by_staff__user__username", "changed_by_user__username")
     autocomplete_fields = ("submission", "changed_by_staff", "changed_by_user")
     readonly_fields = ("created_at", "updated_at", "changed_at")
