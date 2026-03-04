@@ -16,8 +16,8 @@ class UserViewsTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_authenticated_profile(self) -> None:
-        user = User.objects.create_user(username="tester", password="secret")
-        self.client.login(username="tester", password="secret")
+        user = User.objects.create_user(email="tester@example.com", username="tester", password="secret")
+        self.client.login(username="tester@example.com", password="secret")
         response = self.client.get(reverse("user:profile"))
         self.assertContains(response, "tester")
 
@@ -26,7 +26,6 @@ class UserViewsTests(TestCase):
             reverse("user:signup"),
             data={
                 "username": "rider1",
-                "nickname": "라이더",
                 "email": "rider@example.com",
                 "password1": "testpass123",
                 "password2": "testpass123",

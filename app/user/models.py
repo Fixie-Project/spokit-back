@@ -26,6 +26,10 @@ class UserManager(BaseUserManager):
         if not email:
             raise ValueError("이메일은 필수 입력 값입니다.")
         email = self.normalize_email(email)
+        if not extra_fields.get("username"):
+            extra_fields["username"] = email.split("@")[0]
+        if not extra_fields.get("nickname"):
+            extra_fields["nickname"] = extra_fields["username"]
         user = self.model(email=email, **extra_fields)
         if password:
             user.set_password(password)
@@ -58,7 +62,8 @@ class User(UUIDPrimaryKeyModel, TimeStampedModel, AbstractBaseUser, PermissionsM
 
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=50)
-    nickname = models.CharField(max_length=50, unique=True)
+    nickname = models.CharField(max_length=50, blank=True)
+    riding_since = models.PositiveSmallIntegerField(null=True, blank=True)
     region = models.CharField(max_length=50, blank=True)
     intro = models.TextField(blank=True)
     sns_link = models.URLField(blank=True, validators=[URLValidator(schemes=["http", "https"])])
@@ -76,7 +81,7 @@ class User(UUIDPrimaryKeyModel, TimeStampedModel, AbstractBaseUser, PermissionsM
     objects = UserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username", "nickname"]
+    REQUIRED_FIELDS: list[str] = []
 
     class Meta:
         db_table = "user_user"
@@ -88,7 +93,7 @@ class User(UUIDPrimaryKeyModel, TimeStampedModel, AbstractBaseUser, PermissionsM
         ]
 
     def __str__(self) -> str:  # pragma: no cover - 간단한 표시용 메서드
-        return self.nickname or self.username
+        return self.username or self.nickname or self.email
 
     def clean(self):
         super().clean()

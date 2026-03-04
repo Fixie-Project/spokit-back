@@ -32,10 +32,11 @@ class SubmissionForm(forms.ModelForm):
             "build",
             "title",
             "status",
-            "rejection_reason",
+            "reason_code",
+            "reason_detail",
         ]
         widgets = {
-            "rejection_reason": forms.Textarea(attrs={"rows": 3}),
+            "reason_detail": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):

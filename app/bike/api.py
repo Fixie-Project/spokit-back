@@ -1,279 +1,403 @@
-"""바이크 관련 API 뷰셋입니다."""
+"""Bike and bike build related API views."""
 from __future__ import annotations
 
-from django.db.models import Prefetch, Q
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema, extend_schema_view
-from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
+from rest_framework import permissions, status
+from app.core.pagination import BuildLimitOffsetPagination
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated, ValidationError
+from rest_framework.views import APIView
 
-from .models import Bike, BikeBuild
+from .models import Bike, BikeBuild, BikeBuildLike
 from .serializers import (
+    BikeBuildDetailResponseSerializer,
     BikeBuildDetailSerializer,
+    BikeBuildArchiveResponseSerializer,
+    BikeBuildListResponseSerializer,
+    BikeBuildLikeToggleResponseSerializer,
     BikeBuildSerializer,
     BikeBuildWriteSerializer,
-    BikePublicListSerializer,
+    BikeDetailResponseSerializer,
+    BikeListResponseSerializer,
     BikeSerializer,
+    MessageSerializer,
 )
-from app.core.responses import error_response
+from app.core.responses import success_response
 
-SAFE_TRUE_VALUES = {"1", "true", "yes", "on"}
-
-
-def _to_bool(value: str | None) -> bool:
-    return str(value).lower() in SAFE_TRUE_VALUES if value is not None else False
+PUBLIC_TAG = "Public"
 
 
-@extend_schema_view(
-    list=extend_schema(
-        tags=["Bikes"],
-        summary="내 자전거 목록 조회",
-        parameters=[
-            OpenApiParameter(
-                name="owner",
-                location=OpenApiParameter.QUERY,
-                description="소유자 ID. 지정하면 해당 사용자의 공개 자전거나 본인인 경우 전체를 조회합니다.",
-                required=False,
-                type=str,
-            ),
-            OpenApiParameter(
-                name="include_hidden",
-                location=OpenApiParameter.QUERY,
-                description="`true`로 지정하면 내 자전거를 비공개 포함하여 조회합니다.",
-                required=False,
-                type=bool,
-            ),
-        ],
-    ),
-    retrieve=extend_schema(tags=["Bikes"], summary="바이크 상세 조회"),
-    create=extend_schema(tags=["Bikes"], summary="바이크 등록"),
-    update=extend_schema(tags=["Bikes"], summary="바이크 전체 수정"),
-    partial_update=extend_schema(tags=["Bikes"], summary="바이크 부분 수정"),
-    destroy=extend_schema(tags=["Bikes"], summary="바이크 삭제"),
-)
-class BikeViewSet(viewsets.ModelViewSet):
-    """회원의 자전거를 조회/수정/삭제할 수 있는 API."""
-
-    serializer_class = BikeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        owner_id = self.request.query_params.get("owner")
-        include_hidden = _to_bool(self.request.query_params.get("include_hidden"))
-
-        if owner_id:
-            qs = Bike.objects.filter(owner_id=owner_id)
-            if (
-                include_hidden
-                and self.request.user.is_authenticated
-                and str(self.request.user.id) == str(owner_id)
-            ):
-                return qs.prefetch_related(
-                    Prefetch(
-                        "builds",
-                        queryset=BikeBuild.objects.filter(base_bike__owner_id=owner_id).select_related("base_bike"),
-                    )
-                )
-            return qs.filter(is_public=True).prefetch_related(
-                Prefetch(
-                    "builds",
-                    queryset=BikeBuild.objects.filter(
-                        is_public=True,
-                        base_bike__is_public=True,
-                        base_bike__owner_id=owner_id,
-                    ).select_related("base_bike"),
-                )
-            )
-
-        if not self.request.user.is_authenticated:
-            return Bike.objects.none()
-
-        qs = Bike.objects.filter(owner=self.request.user)
-        if include_hidden:
-            return qs.prefetch_related("builds")
-        return qs.prefetch_related(
-            Prefetch(
-                "builds",
-                queryset=BikeBuild.objects.filter(
-                    is_public=True,
-                    base_bike__is_public=True,
-                    base_bike__owner=self.request.user,
-                ).select_related("base_bike"),
-            )
-        )
-
-    def get_serializer_class(self):
-        if self.action == "retrieve":
-            return BikeSerializer
-
-        owner_id = self.request.query_params.get("owner")
-        include_hidden = _to_bool(self.request.query_params.get("include_hidden"))
-
-        if owner_id:
-            if not self.request.user.is_authenticated:
-                return BikePublicListSerializer
-            if str(owner_id) != str(self.request.user.id):
-                return BikePublicListSerializer
-            return BikeSerializer
-
-        if not self.request.user.is_authenticated:
-            return BikePublicListSerializer
-
-        return BikeSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-    @extend_schema(
-        tags=["Bikes"],
-        summary="공개 자전거 목록 조회",
-        description="특정 사용자의 공개 자전거와 공개 빌드 정보를 반환합니다.",
-        parameters=[
-            OpenApiParameter(
-                name="owner",
-                location=OpenApiParameter.QUERY,
-                description="자전거 소유자 ID",
-                required=True,
-                type=str,
-            )
-        ],
-        responses=BikeSerializer(many=True),
-    )
-    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny], url_path="public")
-    def list_public_bikes(self, request):
-        owner_id = request.query_params.get("owner")
-        if not owner_id:
-            return error_response(
-                "owner parameter is required.",
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="MISSING_PARAMETER",
-            )
-
-        queryset = Bike.objects.filter(owner_id=owner_id, is_public=True).only(
-            "id", "name", "frame_name", "frame_brand", "frame_type", "created_at", "updated_at"
-        )
-        serializer = BikePublicListSerializer(queryset, many=True, context={"request": request})
-        return Response(serializer.data)
-
-
-@extend_schema_view(
-    list=extend_schema(
-        tags=["Bike Builds"],
-        summary="자전거 빌드 목록",
-        description="owner 파라미터가 없으면 내 빌드를, 있으면 해당 사용자의 공개 빌드를 반환합니다.",
-        parameters=[
-            OpenApiParameter(
-                name="owner",
-                location=OpenApiParameter.QUERY,
-                description="소유자 ID. 지정하면 공개 빌드만 조회됩니다.",
-                required=False,
-                type=str,
-            ),
-            OpenApiParameter(
-                name="include_hidden",
-                location=OpenApiParameter.QUERY,
-                description="`true`로 지정하면 소유자가 자신의 비공개 빌드까지 조회합니다.",
-                required=False,
-                type=bool,
-            ),
-        ],
-    ),
-    retrieve=extend_schema(tags=["Bike Builds"], summary="바이크 빌드 상세 조회"),
-    create=extend_schema(
-        tags=["Bike Builds"],
-        summary="바이크 빌드 등록",
-        examples=[
-            OpenApiExample(
-                name="Bike build payload",
-                value={
-                    "base_bike": "d6f2b8d4-5a1f-4f86-97be-0e8bbf08c888",
-                    "title": "Commuter Setup",
-                    "components": {
-                        "wheel": {
-                            "brand": "H Plus Son",
-                            "model": "AT-25",
-                            "details": {
-                                "hub": {"brand": "Phil Wood", "model": "Low Flange"},
-                                "tire": {"brand": "Continental", "model": "Gatorskin"},
-                            },
-                        },
-                        "drivetrain": {
-                            "brand": "SRAM",
-                            "model": "Omnium",
-                            "details": {
-                                "chain": "Izumi Super Toughness",
-                            },
-                        },
-                    },
-                    "note": "도심 출퇴근용 세팅",
+def _bike_examples():
+    return [
+        OpenApiExample(
+            "Bike detail",
+            value={
+                "message": "자전거를 조회했습니다.",
+                "data": {
+                    "id": "uuid",
+                    "owner": "uuid",
+                    "name": "Midnight Stealth",
+                    "frame_name": "State 4130 Chromoly",
+                    "main_image": {"url": "https://.../main.jpg", "width": 1200, "height": 800},
+                    "main_image_url": "https://.../main.jpg",
+                    "is_posted": False,
+                    "created_at": "2025-01-01T12:00:00Z",
+                    "updated_at": "2025-01-02T12:00:00Z",
+                    "builds": [
+                        {
+                            "id": "build-uuid",
+                            "base_bike": {"id": "uuid", "frame_name": "State 4130 Chromoly"},
+                            "title": "Chrome Dreams",
+                            "is_public": True,
+                            "created_at": "2025-01-02T12:00:00Z",
+                            "updated_at": "2025-01-02T12:00:00Z",
+                            "main_image": None,
+                            "main_image_url": None,
+                        }
+                    ],
                 },
-                request_only=True,
-            ),
-        ],
-    ),
-    update=extend_schema(tags=["Bike Builds"], summary="바이크 빌드 전체 수정"),
-    partial_update=extend_schema(tags=["Bike Builds"], summary="바이크 빌드 부분 수정"),
-    destroy=extend_schema(tags=["Bike Builds"], summary="바이크 빌드 삭제"),
-)
-class BikeBuildViewSet(viewsets.ModelViewSet):
-    """회원이 자전거 빌드를 관리할 수 있는 API."""
+            },
+            response_only=True,
+        )
+    ]
+
+
+def _build_examples():
+    return [
+        OpenApiExample(
+            "Bike build detail",
+            value={
+                "message": "자전거 빌드를 조회했습니다.",
+                "data": {
+                    "id": "build-uuid",
+                    "base_bike": {"id": "bike-uuid", "frame_name": "Cinelli Mash Histogram"},
+                    "title": "Chrome Dreams",
+                    "components": {
+                        "frame_setup": ["Cinelli Mash Histogram"],
+                        "wheel": ["H+Son Archetype"],
+                        "cockpit": ["Nitto B123"],
+                    },
+                    "note": "",
+                    "is_public": True,
+                    "created_at": "2025-01-01T12:00:00Z",
+                    "updated_at": "2025-01-02T12:00:00Z",
+                    "main_image": None,
+                    "images": [],
+                },
+            },
+            response_only=True,
+        )
+    ]
+
+
+def _get_visibility(request, *, default: str | None = None) -> str | None:
+    raw = request.query_params.get("visibility")
+    if raw:
+        value = raw.lower()
+        if value not in {"public", "private"}:
+            raise ValidationError({"visibility": "허용 값은 public, private 입니다."})
+        return value
+    return default
+
+
+class BikeListCreateView(APIView):
+    """로그인 사용자의 자전거 목록 조회 및 등록."""
 
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        queryset = BikeBuild.objects.select_related("base_bike")
-        owner_id = self.request.query_params.get("owner")
-        include_hidden = _to_bool(self.request.query_params.get("include_hidden"))
+    @extend_schema(
+        tags=["Bikes"],
+        summary="내 자전거 목록",
+        responses=BikeListResponseSerializer,
+        examples=_bike_examples(),
+    )
+    def get(self, request):
+        queryset = Bike.objects.filter(owner=request.user).prefetch_related("builds__likes")
+        serializer = BikeSerializer(queryset, many=True, context={"request": request})
+        return success_response("자전거 목록을 조회했습니다.", serializer.data)
 
-        if self.action == "retrieve":
-            filters = Q(is_public=True, base_bike__is_public=True)
-            if self.request.user.is_authenticated:
-                filters |= Q(base_bike__owner=self.request.user)
-            return queryset.filter(filters)
-
-        if owner_id:
-            queryset = queryset.filter(base_bike__owner_id=owner_id)
-            if (
-                include_hidden
-                and self.request.user.is_authenticated
-                and str(self.request.user.id) == str(owner_id)
-            ):
-                return queryset
-            return queryset.filter(is_public=True, base_bike__is_public=True)
-
-        if not self.request.user.is_authenticated:
-            return queryset.none()
-
-        if include_hidden or owner_id is None:
-            return queryset.filter(base_bike__owner=self.request.user)
-
-        return queryset.filter(
-            base_bike__owner=self.request.user,
-            is_public=True,
-            base_bike__is_public=True,
+    @extend_schema(tags=["Bikes"], summary="자전거 등록", responses=BikeDetailResponseSerializer)
+    def post(self, request):
+        serializer = BikeSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(owner=request.user)
+        return success_response(
+            "자전거가 등록되었습니다.", serializer.data, status_code=status.HTTP_201_CREATED
         )
 
-    def get_serializer_class(self):
-        if self.action == "list":
-            return BikeBuildSerializer
-        if self.action == "retrieve":
-            return BikeBuildDetailSerializer
-        return BikeBuildWriteSerializer
 
-    def perform_create(self, serializer):
+class BikeDetailView(APIView):
+    """자전거 상세 조회/수정/삭제."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_object(self, bike_id: str) -> Bike:
+        return get_object_or_404(Bike.objects.prefetch_related("builds"), pk=bike_id)
+
+    @extend_schema(tags=["Bikes"], summary="자전거 상세 조회", responses=BikeDetailResponseSerializer)
+    def get(self, request, bike_id: str):
+        bike = self._get_object(bike_id)
+        if bike.owner_id != request.user.id:
+            raise PermissionDenied("본인 자전거만 조회할 수 있습니다.")
+        serializer = BikeSerializer(bike, context={"request": request})
+        return success_response("자전거를 조회했습니다.", serializer.data)
+
+    @extend_schema(tags=["Bikes"], summary="자전거 부분 수정", responses=BikeDetailResponseSerializer)
+    def patch(self, request, bike_id: str):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("로그인이 필요합니다.")
+        bike = self._get_object(bike_id)
+        if bike.owner_id != request.user.id:
+            raise PermissionDenied("본인 자전거만 수정할 수 있습니다.")
+        serializer = BikeSerializer(
+            bike,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response("자전거가 수정되었습니다.", serializer.data)
+
+    @extend_schema(tags=["Bikes"], summary="자전거 삭제", responses=MessageSerializer)
+    def delete(self, request, bike_id: str):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("로그인이 필요합니다.")
+        bike = self._get_object(bike_id)
+        if bike.owner_id != request.user.id:
+            raise PermissionDenied("본인 자전거만 삭제할 수 있습니다.")
+        bike.delete()
+        return success_response("자전거가 삭제되었습니다.")
+
+
+class BikeBuildListCreateView(APIView):
+    """로그인 사용자의 빌드 목록 및 등록."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        tags=["Bike Builds"],
+        summary="내 자전거 빌드 목록",
+        parameters=[
+            OpenApiParameter(
+                name="visibility",
+                location=OpenApiParameter.QUERY,
+                description="`public` 또는 `private` 중 선택. 생략 시 전체",
+                required=False,
+                type=str,
+            )
+        ],
+        responses=BikeBuildListResponseSerializer,
+        examples=_build_examples(),
+    )
+    def get(self, request):
+        visibility = _get_visibility(request, default=None)
+        queryset = (
+            BikeBuild.objects.filter(base_bike__owner=request.user)
+            .select_related("base_bike", "main_image")
+            .prefetch_related("likes")
+        )
+
+        if visibility == "public":
+            queryset = queryset.filter(is_public=True)
+        elif visibility == "private":
+            queryset = queryset.filter(is_public=False)
+
+        ordering = request.query_params.get("ordering", "-created_at")
+        allowed_ordering = {"created_at", "-created_at", "title", "-title"}
+        if ordering not in allowed_ordering:
+            ordering = "-created_at"
+        queryset = queryset.order_by(ordering)
+        serializer = BikeBuildSerializer(queryset, many=True, context={"request": request})
+        return success_response("자전거 빌드 목록을 조회했습니다.", serializer.data)
+
+    @extend_schema(
+        tags=["Bike Builds"],
+        summary="자전거 빌드 등록",
+        responses=BikeBuildDetailResponseSerializer,
+        examples=_build_examples(),
+    )
+    def post(self, request):
+        serializer = BikeBuildWriteSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
         base_bike = serializer.validated_data["base_bike"]
-        if base_bike.owner != self.request.user:
+        if base_bike.owner_id != request.user.id:
             raise PermissionDenied("본인 자전거에만 빌드를 추가할 수 있습니다.")
-        serializer.save()
+        build = serializer.save()
+        return success_response(
+            "자전거 빌드가 등록되었습니다.",
+            BikeBuildDetailSerializer(build, context={"request": request}).data,
+            status_code=status.HTTP_201_CREATED,
+        )
 
-    def perform_update(self, serializer):
-        base_bike = serializer.validated_data.get("base_bike", serializer.instance.base_bike)
-        if base_bike.owner != self.request.user:
-            raise PermissionDenied("본인 자전거에만 빌드를 수정할 수 있습니다.")
-        serializer.save()
 
-    def perform_destroy(self, instance):
-        if instance.base_bike.owner != self.request.user:
-            raise PermissionDenied("본인 자전거에만 빌드를 삭제할 수 있습니다.")
-        instance.delete()
+class BikeBuildDetailView(APIView):
+    """자전거 빌드 상세/수정/삭제."""
+
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def _get_object(self, build_id: str) -> BikeBuild:
+        return get_object_or_404(
+            BikeBuild.objects.select_related("base_bike", "main_image").prefetch_related("images__image", "likes"),
+            pk=build_id,
+        )
+
+    @extend_schema(
+        tags=["Bike Builds", PUBLIC_TAG],
+        summary="자전거 빌드 상세 조회",
+        responses=BikeBuildDetailResponseSerializer,
+        examples=_build_examples(),
+    )
+    def get(self, request, build_id: str):
+        build = self._get_object(build_id)
+        is_owner = request.user.is_authenticated and build.base_bike.owner_id == request.user.id
+        is_public = build.is_public
+        if is_owner or is_public:
+            serializer = BikeBuildDetailSerializer(build, context={"request": request})
+            return success_response("자전거 빌드를 조회했습니다.", serializer.data)
+        raise PermissionDenied("이 빌드를 볼 수 있는 권한이 없습니다.")
+
+    @extend_schema(
+        tags=["Bike Builds"],
+        summary="자전거 빌드 부분 수정",
+        responses=BikeBuildDetailResponseSerializer,
+        examples=_build_examples(),
+    )
+    def patch(self, request, build_id: str):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("로그인이 필요합니다.")
+        build = self._get_object(build_id)
+        if build.base_bike.owner_id != request.user.id:
+            raise PermissionDenied("본인 자전거 빌드만 수정할 수 있습니다.")
+        serializer = BikeBuildWriteSerializer(
+            build,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            "자전거 빌드가 수정되었습니다.",
+            BikeBuildDetailSerializer(build, context={"request": request}).data,
+        )
+
+    @extend_schema(tags=["Bike Builds"], summary="자전거 빌드 삭제", responses=MessageSerializer)
+    def delete(self, request, build_id: str):
+        if not request.user.is_authenticated:
+            raise NotAuthenticated("로그인이 필요합니다.")
+        build = self._get_object(build_id)
+        if build.base_bike.owner_id != request.user.id:
+            raise PermissionDenied("본인 자전거 빌드만 삭제할 수 있습니다.")
+        build.delete()
+        return success_response("자전거 빌드가 삭제되었습니다.")
+
+
+class MyBikeBuildDetailView(BikeBuildDetailView):
+    """내 자전거 빌드 상세/수정/삭제."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        tags=["Bike Builds"],
+        summary="내 자전거 빌드 상세 조회",
+        responses=BikeBuildDetailResponseSerializer,
+        examples=_build_examples(),
+    )
+    def get(self, request, build_id: str):
+        build = self._get_object(build_id)
+        if build.base_bike.owner_id != request.user.id:
+            raise PermissionDenied("본인 빌드만 조회할 수 있습니다.")
+        serializer = BikeBuildDetailSerializer(build, context={"request": request})
+        return success_response("자전거 빌드를 조회했습니다.", serializer.data)
+
+
+class BikeBuildArchiveListView(APIView):
+    """전체 공개 빌드 목록."""
+
+    permission_classes = [permissions.AllowAny]
+    pagination_class = BuildLimitOffsetPagination
+
+    @extend_schema(
+        tags=["Bike Builds", PUBLIC_TAG],
+        summary="전체 공개 빌드 목록",
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                location=OpenApiParameter.QUERY,
+                description="페이지 크기(기본 10, 최대 50)",
+                required=False,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="offset",
+                location=OpenApiParameter.QUERY,
+                description="시작 오프셋",
+                required=False,
+                type=int,
+            ),
+        ],
+        responses=BikeBuildArchiveResponseSerializer,
+        examples=_build_examples(),
+    )
+    def get(self, request):
+        queryset = (
+            BikeBuild.objects.filter(is_public=True)
+            .select_related("base_bike", "main_image")
+            .prefetch_related("likes")
+            .order_by("-created_at")
+        )
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        if page is not None:
+            serializer = BikeBuildSerializer(page, many=True, context={"request": request})
+            payload = {
+                "count": paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data,
+            }
+            return success_response("공개 빌드 목록을 조회했습니다.", payload)
+        serializer = BikeBuildSerializer(queryset, many=True, context={"request": request})
+        return success_response("공개 빌드 목록을 조회했습니다.", serializer.data)
+
+
+class BikeBuildLikeToggleAPIView(APIView):
+    """자전거 빌드 좋아요 토글."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        tags=["Bike Builds"],
+        summary="자전거 빌드 좋아요 토글",
+        responses=BikeBuildLikeToggleResponseSerializer,
+        examples=[
+            OpenApiExample(
+                "Like response",
+                value={
+                    "message": "좋아요 상태를 변경했습니다.",
+                    "data": {"liked": True, "like_count": 12},
+                },
+                response_only=True,
+            )
+        ],
+    )
+    def post(self, request, build_id: str):
+        build = get_object_or_404(
+            BikeBuild.objects.select_related("base_bike"),
+            pk=build_id,
+        )
+        is_owner = build.base_bike.owner_id == request.user.id
+        if not build.is_public and not is_owner:
+            raise PermissionDenied("이 빌드에 좋아요를 누를 수 없습니다.")
+
+        like, created = BikeBuildLike.objects.get_or_create(build=build, user=request.user)
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+        return success_response(
+            "좋아요 상태를 변경했습니다.",
+            {"liked": liked, "like_count": build.likes.count()},
+        )

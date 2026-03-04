@@ -8,11 +8,11 @@ from django.contrib.auth.forms import UserCreationForm
 
 class SignupForm(UserCreationForm):
     email = forms.EmailField(label="이메일", required=True)
-    nickname = forms.CharField(label="닉네임", required=True)
+    nickname = forms.CharField(label="닉네임", required=False)
 
     class Meta(UserCreationForm.Meta):
         model = get_user_model()
-        fields = ("username", "nickname", "email")
+        fields = ("username", "email")
 
     def save(self, commit: bool = True):
         user = super().save(commit=False)
@@ -20,6 +20,8 @@ class SignupForm(UserCreationForm):
         nickname = self.cleaned_data.get("nickname")
         if nickname:
             user.nickname = nickname
+        elif user.username:
+            user.nickname = user.username
         if commit:
             user.save()
         return user

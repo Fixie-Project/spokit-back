@@ -8,6 +8,7 @@ from django.db import models
 
 from app.bike.models import Bike, BikeBuild
 from app.core.models import BaseImage, BaseModel
+from app.user.models import User
 
 
 class SubmissionStatus(models.TextChoices):
@@ -21,6 +22,16 @@ class SubmissionStatus(models.TextChoices):
     PUBLISHED = "published", "게시 완료"
     REJECTED = "rejected", "반려"
     RESUBMITTED = "resubmitted", "재신청"
+
+
+class SubmissionRejectionReason(models.TextChoices):
+    """신청서 반려 사유 코드."""
+
+    CONTENT_INCOMPLETE = "content_incomplete", "콘텐츠 보완 필요"
+    PHOTO_ISSUE = "photo_issue", "이미지 품질 문제"
+    GUIDELINE_MISMATCH = "guideline_mismatch", "가이드라인 불일치"
+    DUPLICATE = "duplicate", "중복 신청"
+    OTHER = "other", "기타"
 
 
 class Submission(BaseModel):
@@ -50,8 +61,14 @@ class Submission(BaseModel):
     title = models.CharField(max_length=200)
     build_snapshot = models.JSONField(default=dict)
     story_blocks = models.JSONField(default=list)
+    rider_snapshot = models.JSONField(default=dict)
     status = models.CharField(max_length=20, choices=SubmissionStatus.choices, default=SubmissionStatus.DRAFT)
-    rejection_reason = models.TextField(blank=True)
+    reason_code = models.CharField(
+        max_length=40,
+        choices=SubmissionRejectionReason.choices,
+        blank=True,
+    )
+    reason_detail = models.TextField(blank=True)
 
     class Meta:
         db_table = "submission_submission"
@@ -75,7 +92,16 @@ class Submission(BaseModel):
         if not isinstance(self.build_snapshot, dict):
             raise ValidationError({"build_snapshot": "빌드 스냅샷은 dict 형태여야 합니다."})
 
+        if self.status == SubmissionStatus.REJECTED:
+            if not self.reason_code:
+                raise ValidationError({"reason_code": "반려 사유 코드를 선택해 주세요."})
+        else:
+            self.reason_code = ""
+            self.reason_detail = ""
+
     def save(self, *args, **kwargs):
+        if not self.rider_snapshot:
+            self.rider_snapshot = self._build_rider_snapshot()
         self.full_clean(exclude=None)
         super().save(*args, **kwargs)
 
@@ -87,7 +113,26 @@ class Submission(BaseModel):
             "title": self.title,
             "build_snapshot": self.build_snapshot,
             "story_blocks": self.story_blocks,
+            "rider_snapshot": self.rider_snapshot,
             "status": self.status,
+        }
+
+    def _build_rider_snapshot(self) -> dict[str, Any]:
+        user: User | None = getattr(self, "user", None)
+        if not user:
+            return {}
+        image = getattr(user, "profile_image", None)
+        image_payload = (
+            {"url": image.url, "width": image.width, "height": image.height} if image else None
+        )
+        return {
+            "id": str(user.id),
+            "username": user.username,
+            "riding_since": user.riding_since,
+            "intro": user.intro,
+            "region": user.region,
+            "sns_link": user.sns_link,
+            "profile_image": image_payload,
         }
 
 
@@ -158,7 +203,7 @@ class SubmissionStatusLog(BaseModel):
         verbose_name_plural = "신청서 상태 로그"
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(changed_by_staff__isnull=False, changed_by_user__isnull=True)
                     | models.Q(changed_by_staff__isnull=True, changed_by_user__isnull=False)
                 ),

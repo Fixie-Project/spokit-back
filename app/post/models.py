@@ -72,6 +72,8 @@ class Post(BaseModel):
         related_name="posts",
     )
     build_snapshot = models.JSONField(default=dict)
+    story_snapshot = models.JSONField(default=list)
+    rider_snapshot = models.JSONField(default=dict)
     rider = models.ForeignKey(
         "user.User",
         null=True,
@@ -94,6 +96,8 @@ class Post(BaseModel):
     tags = models.ManyToManyField(Tag, related_name="posts", blank=True)
     status = models.CharField(max_length=20, choices=PostStatus.choices, default=PostStatus.DRAFT)
     published_at = models.DateTimeField(null=True, blank=True)
+    view_count = models.PositiveIntegerField(default=0)
+    is_editor_pick = models.BooleanField(default=False)
 
     class Meta:
         db_table = "post_post"
@@ -133,6 +137,36 @@ class Post(BaseModel):
             "status": self.status,
             "slug": self.slug,
         }
+
+    def sync_snapshots_from_submission(self, *, force: bool = False) -> bool:
+        """Copy immutable data from submission to local snapshots."""
+
+        if not self.submission_id:
+            return False
+
+        changed = False
+        submission = self.submission
+
+        if force or not self.build_snapshot:
+            snapshot = submission.build_snapshot or {}
+            if snapshot != self.build_snapshot:
+                self.build_snapshot = snapshot
+                changed = True
+
+        if force or not self.story_snapshot:
+            story_data = submission.story_blocks or []
+            if story_data != self.story_snapshot:
+                self.story_snapshot = story_data
+                changed = True
+
+        if force or not self.rider_snapshot:
+            rider = getattr(submission, "user", None)
+            rider_snap = _build_rider_snapshot(rider) if rider else {}
+            if rider_snap != self.rider_snapshot:
+                self.rider_snapshot = rider_snap
+                changed = True
+
+        return changed
 
 
 class PostImagePurpose(models.TextChoices):
@@ -212,6 +246,24 @@ class Like(BaseModel):
         verbose_name = "좋아요"
         verbose_name_plural = "좋아요"
         unique_together = ("post", "user")
+
+
+def _build_rider_snapshot(user) -> dict[str, Any]:
+    if not user:
+        return {}
+    image = getattr(user, "profile_image", None)
+    image_payload = (
+        {"url": image.url, "width": image.width, "height": image.height} if image else None
+    )
+    return {
+        "id": str(user.id),
+        "username": user.username,
+        "riding_since": user.riding_since,
+        "intro": user.intro,
+        "region": user.region,
+        "sns_link": user.sns_link,
+        "profile_image": image_payload,
+    }
 
     def __str__(self) -> str:  # pragma: no cover - 표시용 헬퍼
         return f"{self.user} → {self.post}"

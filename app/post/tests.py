@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from app.bike.models import Bike, BikeBuild, FrameType
 
+from app.submission.models import Submission
 from .models import Comment, Post, PostStatus
 
 
@@ -19,9 +20,6 @@ class PostInteractionTests(TestCase):
         self.bike = Bike.objects.create(
             owner=self.user,
             frame_name="Affinity LoPro",
-            frame_brand="Affinity",
-            frame_type=FrameType.ALLOY,
-            is_public=True,
             is_posted=True,
         )
         self.build = BikeBuild.objects.create(base_bike=self.bike, components={}, note="")
@@ -29,6 +27,7 @@ class PostInteractionTests(TestCase):
             bike=self.bike,
             build=self.build,
             build_snapshot={"frame": "Affinity"},
+            story_snapshot=[{"question_id": "q1", "answer": "a1"}],
             main_title="첫 글",
             sub_title="테스트",
             content_md="",
@@ -49,10 +48,28 @@ class PostInteractionTests(TestCase):
         self.client.login(username="tester@example.com", password="secret123")
         url = reverse("post:comment", kwargs={"slug": self.post.slug})
         response = self.client.post(url, data={"content": "좋은 빌드네요"}, follow=True)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()["data"]
+        self.assertEqual(payload["content"], "좋은 빌드네요")
         self.assertTrue(
             Comment.objects.filter(post=self.post, user=self.user, content__contains="좋은").exists()
         )
+
+    def test_comment_edit_and_delete_only_owner(self) -> None:
+        self.client.login(username="tester@example.com", password="secret123")
+        create_url = reverse("post:comment", kwargs={"slug": self.post.slug})
+        response = self.client.post(create_url, data={"content": "원글"})
+        comment_id = response.json()["data"]["id"]
+
+        patch_url = reverse("post:comment-detail", kwargs={"slug": self.post.slug, "comment_id": comment_id})
+        response = self.client.patch(patch_url, data={"content": "수정"}, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["content"], "수정")
+
+        delete_url = patch_url
+        response = self.client.delete(delete_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Comment.objects.filter(id=comment_id).exists())
 
     def test_like_toggle(self) -> None:
         self.client.login(username="tester@example.com", password="secret123")
@@ -63,3 +80,102 @@ class PostInteractionTests(TestCase):
         response = self.client.post(url)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(self.post.likes.filter(user=self.user).exists())
+
+    def test_view_count_increments_on_detail(self) -> None:
+        detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["view_count"], 1)
+        self.post.refresh_from_db(fields=["view_count"])
+        self.assertEqual(self.post.view_count, 1)
+
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["view_count"], 2)
+        self.post.refresh_from_db(fields=["view_count"])
+        self.assertEqual(self.post.view_count, 2)
+
+    def test_detail_returns_comment_count_and_like_flag(self) -> None:
+        Comment.objects.create(post=self.post, user=self.user, content="첫 댓글")
+        detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
+
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["comment_count"], 1)
+        self.assertFalse(data["is_liked"])
+
+        self.client.login(username="tester@example.com", password="secret123")
+        like_url = reverse("post:like", kwargs={"slug": self.post.slug})
+        self.client.post(like_url)
+
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["comment_count"], 1)
+        self.assertTrue(data["is_liked"])
+
+    def test_editor_pick_flag_in_serializer(self) -> None:
+        detail_url = reverse("post-detail", kwargs={"slug": self.post.slug})
+        response = self.client.get(detail_url)
+        self.assertFalse(response.json()["data"]["is_editor_pick"])
+
+        self.post.is_editor_pick = True
+        self.post.save(update_fields=["is_editor_pick"])
+
+        response = self.client.get(detail_url)
+        self.assertTrue(response.json()["data"]["is_editor_pick"])
+
+    def test_post_search_query_filters_results(self) -> None:
+        Post.objects.create(
+            bike=self.bike,
+            build=self.build,
+            build_snapshot={"frame": "Affinity"},
+            story_snapshot=[],
+            main_title="숨은 글",
+            sub_title="비공개",
+            content_md="",
+            content_html="<p>내용</p>",
+            content_json={"type": "doc", "content": []},
+            frame_brand="Hidden",
+            frame_type=FrameType.ALLOY,
+            slug="hidden-post",
+            status=PostStatus.DRAFT,
+        )
+
+        response = self.client.get("/api/posts/?q=첫")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["slug"], self.post.slug)
+
+    def test_sync_snapshots_from_submission(self) -> None:
+        submission = Submission.objects.create(
+            user=self.user,
+            bike=self.bike,
+            build=self.build,
+            title="Submission",
+            build_snapshot={"frame": "Submission Frame"},
+            story_blocks=[{"question_id": "q1", "answer": "story"}],
+        )
+        post = Post.objects.create(
+            bike=self.bike,
+            build=self.build,
+            submission=submission,
+            build_snapshot={},
+            story_snapshot=[],
+            main_title="Snap",
+            sub_title="",
+            content_md="",
+            content_html="<p></p>",
+            content_json={"type": "doc", "content": []},
+            frame_brand="Brand",
+            frame_type=FrameType.ALLOY,
+            slug="snap-test",
+            status=PostStatus.DRAFT,
+        )
+
+        changed = post.sync_snapshots_from_submission(force=True)
+        self.assertTrue(changed)
+        self.assertEqual(post.build_snapshot, submission.build_snapshot)
+        self.assertEqual(post.story_snapshot, submission.story_blocks)
