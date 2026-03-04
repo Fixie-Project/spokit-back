@@ -22,6 +22,7 @@ djangorestframework-simplejwt = "^5.4.0"
 google-auth = "^2.38.0"
 argon2-cffi = "^23.1.0"
 pytest = "^8.4.2"
+bleach = "^6.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

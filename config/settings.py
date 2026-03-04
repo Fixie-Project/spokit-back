@@ -121,6 +121,14 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Cache ---------------------------------------------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "spokit-local-cache",
+    }
+}
+
 
 # Default primary key ------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

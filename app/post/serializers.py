@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from rest_framework import serializers
+from bleach.sanitizer import Cleaner
+from bleach.css_sanitizer import CSSSanitizer
 
 from app.core.models import BaseImage
 
@@ -9,6 +11,40 @@ from app.submission.models import Submission
 from app.user.models import UserRole
 
 from .models import Comment, Post, PostImage, PostImagePurpose, PostStatus, Tag
+
+
+HTML_ALLOWED_TAGS = [
+    "p",
+    "a",
+    "img",
+    "strong",
+    "em",
+    "u",
+    "ol",
+    "ul",
+    "li",
+    "br",
+]
+
+HTML_ALLOWED_ATTRIBUTES = {
+    "a": ["href", "title", "target", "rel"],
+    "img": ["src", "alt", "style", "width", "height"],
+}
+
+HTML_CSS_SANITIZER = CSSSanitizer(allowed_css_properties=["width", "height"])
+
+HTML_CLEANER = Cleaner(
+    tags=HTML_ALLOWED_TAGS,
+    attributes=HTML_ALLOWED_ATTRIBUTES,
+    css_sanitizer=HTML_CSS_SANITIZER,
+    strip=True,
+)
+
+
+def sanitize_html(value: str) -> str:
+    if not value:
+        return ""
+    return HTML_CLEANER.clean(value)
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -215,6 +251,8 @@ class PostWriteSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"build_snapshot": "운영진 포스트에서만 수정할 수 있습니다."}
                 )
+        if "content_html" in attrs:
+            attrs["content_html"] = sanitize_html(attrs.get("content_html", ""))
         return attrs
 
     def create(self, validated_data):
