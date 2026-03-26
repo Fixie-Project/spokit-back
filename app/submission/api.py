@@ -166,7 +166,11 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return Submission.objects.filter(user=self.request.user).select_related("bike", "build").prefetch_related("images")
+        return Submission.objects.filter(user=self.request.user).select_related(
+            "bike",
+            "build",
+            "build__base_bike",
+        )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -353,7 +357,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 class SubmissionModerationViewSet(viewsets.GenericViewSet):
     """운영진 전용 신청서 상태 전이 API."""
 
-    queryset = Submission.objects.select_related("user", "bike", "build")
+    queryset = Submission.objects.select_related("user", "bike", "build", "build__base_bike")
     serializer_class = SubmissionSerializer
     permission_classes = [IsStaffUser]
     http_method_names = ["post", "head", "options"]
@@ -528,8 +532,7 @@ class UserSubmissionListAPIView(APIView):
     def get(self, request):
         submissions = (
             Submission.objects.filter(user=request.user)
-            .select_related("bike", "build")
-            .prefetch_related("images")
+            .select_related("bike", "build", "build__base_bike")
             .order_by("-created_at")
         )
         serializer = SubmissionListItemSerializer(submissions, many=True, context={"request": request})
