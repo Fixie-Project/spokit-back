@@ -57,6 +57,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("id", "email")
 
+    def validate_username(self, value: str) -> str:
+        username = (value or "").strip()
+        if not username:
+            raise serializers.ValidationError("username은 비워둘 수 없습니다.")
+        exists = (
+            User.objects.filter(username__iexact=username)
+            .exclude(pk=getattr(self.instance, "pk", None))
+            .exists()
+        )
+        if exists:
+            raise serializers.ValidationError("이미 사용 중인 username입니다.")
+        return username
+
     def update(self, instance: User, validated_data):
         for field, value in validated_data.items():
             setattr(instance, field, value)

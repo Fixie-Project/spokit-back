@@ -29,6 +29,19 @@ from .serializers import (
 PUBLIC_TAG = "Public"
 
 
+def _generate_unique_username(base: str) -> str:
+    base = (base or "").strip() or "user"
+    base = base[:50]
+    candidate = base
+    suffix = 1
+    while User.objects.filter(username__iexact=candidate).exists():
+        suffix += 1
+        suffix_text = f"-{suffix}"
+        trimmed = base[: max(1, 50 - len(suffix_text))]
+        candidate = f"{trimmed}{suffix_text}"
+    return candidate
+
+
 class UserProfileSummaryAPIView(views.APIView):
     """신청 상태별 통계 요약을 제공합니다."""
 
@@ -194,8 +207,8 @@ class GoogleOAuthLoginAPIView(views.APIView):
         if not email:
             raise exceptions.AuthenticationFailed("Google 프로필에서 이메일을 확인할 수 없습니다.")
 
-        username = (id_info.get("name") or email.split("@")[0]).strip() or email.split("@")[0]
-        username = username[:50]
+        raw_username = (id_info.get("name") or email.split("@")[0]).strip() or email.split("@")[0]
+        username = _generate_unique_username(raw_username)
 
         user, created = User.objects.get_or_create(
             email=email,
@@ -206,8 +219,8 @@ class GoogleOAuthLoginAPIView(views.APIView):
             },
         )
         if not created and not user.username:
-            user.username = username
-            user.nickname = user.nickname or username
+            user.username = _generate_unique_username(username)
+            user.nickname = user.nickname or user.username
             user.save(update_fields=["username", "nickname", "updated_at"])
         if created:
             user.set_unusable_password()
