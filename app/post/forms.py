@@ -31,7 +31,6 @@ class PostForm(forms.ModelForm):
         model = Post
         fields = [
             "main_title",
-            "sub_title",
             "slug",
             "status",
             "frame_brand",
@@ -43,7 +42,6 @@ class PostForm(forms.ModelForm):
         ]
         labels = {
             "main_title": "메인 타이틀",
-            "sub_title": "서브 타이틀",
             "slug": "슬러그",
             "status": "공개 상태",
             "frame_brand": "프레임 브랜드",

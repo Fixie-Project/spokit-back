@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import quote
 
-from django.db import models
+from django.db import connection, models
 from django.db.models import Case, When, Value, IntegerField, Count, F, TextField
 from django.db.models.functions import Cast
 
@@ -86,7 +86,14 @@ def _apply_rider_sort(qs, sort: str):
 
 def _build_word_regex(keyword: str) -> str:
     tokens = [re.escape(token) for token in re.split(r"\s+", keyword.strip()) if token]
-    return r"\m(" + "|".join(tokens) + r")\M"
+    if not tokens:
+        return r"$^"
+    # PostgreSQL word boundary uses \m \M, SQLite uses Python re so \b is safer.
+    if connection.vendor == "postgresql":
+        start, end = r"\m", r"\M"
+    else:
+        start, end = r"\b", r"\b"
+    return f"{start}(" + "|".join(tokens) + f"){end}"
 
 
 class IRegexSearchEngine:
@@ -98,7 +105,6 @@ class IRegexSearchEngine:
             Post.objects.filter(status=PostStatus.PUBLISHED)
             .filter(
                 models.Q(main_title__iregex=word_regex)
-                | models.Q(sub_title__iregex=word_regex)
                 | models.Q(content_md__iregex=word_regex)
                 | models.Q(content_html__iregex=word_regex)
                 | models.Q(tags__name__iregex=word_regex)
@@ -109,11 +115,6 @@ class IRegexSearchEngine:
             score=(
                 Case(
                     When(main_title__iregex=word_regex, then=Value(40)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                )
-                + Case(
-                    When(sub_title__iregex=word_regex, then=Value(25)),
                     default=Value(0),
                     output_field=IntegerField(),
                 )

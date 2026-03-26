@@ -20,7 +20,7 @@ class PostImageInline(admin.TabularInline):
 class PostAdmin(admin.ModelAdmin):
     list_display = ("main_title", "status", "frame_brand", "frame_type", "published_at", "author", "view_count")
     list_filter = ("status", "frame_brand", "frame_type", "published_at")
-    search_fields = ("main_title", "sub_title", "frame_brand", "frame_type")
+    search_fields = ("main_title", "frame_brand", "frame_type")
     prepopulated_fields = {"slug": ("main_title",)}
     ordering = ("-published_at", "-updated_at")
     autocomplete_fields = ("tags", "author", "submission", "bike", "build", "rider")

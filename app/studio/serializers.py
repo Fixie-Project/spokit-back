@@ -100,7 +100,6 @@ class PostSummarySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "main_title",
-            "sub_title",
             "slug",
             "status",
             "published_at",
@@ -132,7 +131,6 @@ class StudioPostListItemSerializer(serializers.ModelSerializer):
             "slug",
             "thumbnail_image",
             "main_title",
-            "sub_title",
             "display_date",
             "rider",
         ]

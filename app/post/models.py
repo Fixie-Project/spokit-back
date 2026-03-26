@@ -82,7 +82,6 @@ class Post(BaseModel):
         related_name="featured_posts",
     )
     main_title = models.CharField(max_length=200)
-    sub_title = models.CharField(max_length=200)
     content_md = models.TextField(blank=True)
     content_html = models.TextField()
     content_json = models.JSONField()
@@ -131,7 +130,6 @@ class Post(BaseModel):
         return {
             "id": str(self.pk),
             "main_title": self.main_title,
-            "sub_title": self.sub_title,
             "frame_brand": self.frame_brand,
             "frame_type": self.frame_type,
             "status": self.status,

@@ -173,7 +173,6 @@ def ensure_post_for_submission(submission: Submission, *, actor: User):
         rider=submission.user,
         rider_snapshot=rider_snapshot,
         main_title=submission.title,
-        sub_title=submission.title,
         content_md="",
         content_html="",
         content_json={},

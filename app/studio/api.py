@@ -311,7 +311,6 @@ class StudioPostListAPIView(views.APIView):
         if query:
             qs = qs.filter(
                 Q(main_title__icontains=query)
-                | Q(sub_title__icontains=query)
                 | Q(frame_brand__icontains=query)
                 | Q(content_md__icontains=query)
             )
