@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from app.core.models import BaseImage
 
-from .models import Bike, BikeBuild, BuildImage
+from .models import Bike, BikeBuild, BuildImage, BuildImageLabel
 
 
 COMPONENT_CATEGORIES = (
@@ -17,6 +17,17 @@ COMPONENT_CATEGORIES = (
     "brake",
     "etc",
 )
+
+
+class BuildImageWriteSerializer(serializers.Serializer):
+    image = serializers.PrimaryKeyRelatedField(queryset=BaseImage.objects.all())
+    order = serializers.IntegerField(required=False, default=0)
+    label = serializers.ChoiceField(
+        choices=BuildImageLabel.values,
+        required=False,
+        allow_null=True,
+    )
+
 
 class BikeOwnerPublicSerializer(serializers.Serializer):
     """공개 목록에서 노출되는 자전거 소유자 요약."""
@@ -96,9 +107,7 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
     main_image = serializers.PrimaryKeyRelatedField(
         queryset=BaseImage.objects.all(), required=False, allow_null=True
     )
-    images = serializers.PrimaryKeyRelatedField(
-        queryset=BaseImage.objects.all(), many=True, required=False, allow_empty=True, write_only=True
-    )
+    images = BuildImageWriteSerializer(many=True, required=False, allow_empty=True, write_only=True)
 
     class Meta:
         model = BikeBuild
@@ -155,12 +164,20 @@ class BikeBuildWriteSerializer(serializers.ModelSerializer):
 
         return cleaned
 
-    def _set_images(self, build: BikeBuild, images: list[BaseImage]):
+    def _set_images(self, build: BikeBuild, images: list[dict]):
         if images is None:
             return
         BuildImage.objects.filter(build=build).delete()
         BuildImage.objects.bulk_create(
-            [BuildImage(build=build, image=image, order=idx) for idx, image in enumerate(images)]
+            [
+                BuildImage(
+                    build=build,
+                    image=item["image"],
+                    order=item.get("order", idx),
+                    label=item.get("label"),
+                )
+                for idx, item in enumerate(images)
+            ]
         )
 
     def validate_images(self, value):
@@ -221,6 +238,7 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
     """자전거 빌드의 상세 정보를 직렬화."""
 
     base_bike = BikeSummarySerializer(read_only=True)
+    owner = serializers.SerializerMethodField()
     main_image = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     like_count = serializers.IntegerField(source="likes.count", read_only=True)
@@ -231,6 +249,7 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "base_bike",
+            "owner",
             "title",
             "components",
             "note",
@@ -243,6 +262,10 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
             "is_liked",
         ]
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def get_owner(self, obj: BikeBuild):
+        bike = getattr(obj, "base_bike", None)
+        return BikeOwnerPublicSerializer.from_user(getattr(bike, "owner", None))
 
     def get_main_image(self, obj: BikeBuild):
         image = getattr(obj, "main_image", None)
@@ -266,6 +289,7 @@ class BikeBuildDetailSerializer(serializers.ModelSerializer):
                 "height": item.image.height,
                 "order": item.order,
                 "caption": item.caption,
+                "label": item.label,
             }
             for item in gallery.all()
         ]

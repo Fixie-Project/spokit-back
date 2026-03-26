@@ -16,6 +16,18 @@ class FrameType(models.TextChoices):
     TITANIUM = "Titanium", "티타늄"
 
 
+class BuildImageLabel(models.TextChoices):
+    """빌드 이미지 분류 라벨."""
+
+    FRAME_SETUP = "frame_setup", "Frame Setup"
+    WHEEL = "wheel", "Wheel"
+    COCKPIT = "cockpit", "Cockpit"
+    DRIVETRAIN = "drivetrain", "Drivetrain"
+    SEAT = "seat", "Seat"
+    BRAKE = "brake", "Brake"
+    ETC = "etc", "Etc"
+
+
 class Bike(BaseModel):
     """사용자가 등록한 자전거 프레임 정보."""
 
@@ -117,6 +129,12 @@ class BuildImage(BaseModel):
     )
     order = models.PositiveIntegerField(default=0)
     caption = models.CharField(max_length=200, blank=True)
+    label = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True,
+        choices=BuildImageLabel.choices,
+    )
 
     class Meta:
         db_table = "bike_build_image"
