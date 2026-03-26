@@ -22,7 +22,6 @@ const API_ENDPOINT = "/api/studio/posts/"; // 운영진 전용 엔드포인트
 
 export function PostEditor() {
   const [title, setTitle] = useState("");
-  const [subTitle, setSubTitle] = useState("");
   const [status, setStatus] = useState("draft");
   const [frameBrand, setFrameBrand] = useState("");
   const [frameType, setFrameType] = useState("Alloy");
@@ -45,7 +44,6 @@ export function PostEditor() {
     try {
       const payload = {
         main_title: title,
-        sub_title: subTitle,
         content_md: editor.getText(),
         content_html: editor.getHTML(),
         content_json: editor.getJSON(),
@@ -73,7 +71,7 @@ export function PostEditor() {
     } finally {
       setSubmitting(false);
     }
-  }, [editor, title, subTitle, status, frameBrand, frameType, bikeId, buildId, submissionId]);
+  }, [editor, title, status, frameBrand, frameType, bikeId, buildId, submissionId]);
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4">
@@ -84,16 +82,6 @@ export function PostEditor() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="메인 타이틀"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium">Subtitle</label>
-        <input
-          className="w-full border rounded p-2"
-          value={subTitle}
-          onChange={(e) => setSubTitle(e.target.value)}
-          placeholder="부제"
         />
       </div>
 

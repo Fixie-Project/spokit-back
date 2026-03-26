@@ -33,6 +33,7 @@
   - `email` (string)
   - `role` (string)
   - `is_new` (boolean)
+  - 참고: `username`이 이미 존재하면 서버가 자동으로 suffix를 붙여 유니크하게 보정합니다.
 
 ### GET /api/me/profile/
 - 응답 `data`
@@ -54,6 +55,7 @@
   - `sns_link` (string)
   - `profile_image` (uuid | null)
 - 응답: `GET /api/me/profile/`와 동일
+- 참고: `username`은 빈 값 불가이며, 이미 사용 중인 값이면 400 오류가 반환됩니다.
 
 ### GET /api/users/<uuid>/profile/
 - 응답 `data`
@@ -297,6 +299,7 @@ SubmissionDetail
   - `next` (string | null)
   - `previous` (string | null)
   - `results` (PostListItem[])
+  - `q` 검색 범위: `main_title`, `content_md`, `frame_brand`
 
 PostListItem
 - `id` (uuid)
@@ -305,7 +308,6 @@ PostListItem
   - `username` (string)
 - `slug` (string)
 - `main_title` (string)
-- `sub_title` (string)
 - `thumbnail_image` (object | null)
   - `url` (string)
   - `purpose` (string)
@@ -338,7 +340,6 @@ PostDetail
   - `rider_snapshot` (object)
 - `rider` (uuid | null)
 - `main_title` (string)
-- `sub_title` (string)
 - `content_md` (string)
 - `content_html` (string)
 - `content_json` (object)
@@ -438,7 +439,6 @@ SubmissionSummary
 PostSummary
 - `id` (uuid)
 - `main_title` (string)
-- `sub_title` (string)
 - `slug` (string)
 - `status` (string)
 - `published_at` (datetime | null)
@@ -495,7 +495,6 @@ StudioPostListItem
   - `order` (number)
   - `caption` (string)
 - `main_title` (string)
-- `sub_title` (string)
 - `display_date` (datetime)
 - `rider` (object | null)
   - `id` (uuid)
@@ -533,7 +532,6 @@ PostWrite 필드
 - `build_snapshot` (object, 운영진만 수정 가능)
 - `rider` (uuid, optional)
 - `main_title` (string)
-- `sub_title` (string)
 - `content_md` (string)
 - `content_html` (string)
 - `content_json` (object)
@@ -580,6 +578,7 @@ PostWrite 필드
 - `type`: `all` | `magazine` | `archive` | `riders` (기본 `all`)
 - `sort`: `relevance` | `latest` | `popular` (기본 `relevance`)
   - `popular`은 `magazine`/`archive`에만 의미 있으며, `riders`는 `relevance`로 동작합니다.
+  - `magazine` 인기 기준: 좋아요 + 댓글 합, `archive` 인기 기준: 좋아요 수
 - `preview_limit`: `all`일 때 그룹별 미리보기 개수 (기본 3, 최대 10)
 - `page`, `page_size`: 탭 목록용 (기본 `page=1`, `page_size=12`, 최대 24)
 
@@ -614,7 +613,6 @@ PostSearch
 - `id` (uuid)
 - `slug` (string)
 - `main_title` (string)
-- `sub_title` (string)
 - `is_editor_pick` (boolean)
 - `image` (object | null, 썸네일 우선)
   - `url` (string)
@@ -642,7 +640,7 @@ BuildSearch
   - `url` (string)
   - `width` (number | null)
   - `height` (number | null)
-- `matched_components` (string[])
+- `matched_components` (string[]) (없으면 빈 배열)
 
 ---
 
@@ -654,7 +652,6 @@ BuildSearch
     - `id` (uuid)
     - `slug` (string)
     - `main_title` (string)
-    - `sub_title` (string)
     - `is_editor_pick` (boolean)
     - `image` (object | null)
       - `url` (string)
