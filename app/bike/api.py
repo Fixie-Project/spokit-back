@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
+from django.db.models import Prefetch
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import permissions, status
 from app.core.pagination import BuildLimitOffsetPagination
@@ -71,6 +72,7 @@ def _build_examples():
                 "data": {
                     "id": "build-uuid",
                     "base_bike": {"id": "bike-uuid", "frame_name": "Cinelli Mash Histogram"},
+                    "owner": {"id": "user-uuid", "username": "rider"},
                     "title": "Chrome Dreams",
                     "components": {
                         "frame_setup": ["Cinelli Mash Histogram"],
@@ -112,7 +114,15 @@ class BikeListCreateView(APIView):
         examples=_bike_examples(),
     )
     def get(self, request):
-        queryset = Bike.objects.filter(owner=request.user).prefetch_related("builds__likes")
+        build_prefetch = Prefetch(
+            "builds",
+            queryset=BikeBuild.objects.select_related(
+                "base_bike",
+                "base_bike__owner",
+                "main_image",
+            ).prefetch_related("likes"),
+        )
+        queryset = Bike.objects.filter(owner=request.user).prefetch_related(build_prefetch)
         serializer = BikeSerializer(queryset, many=True, context={"request": request})
         return success_response("자전거 목록을 조회했습니다.", serializer.data)
 
@@ -132,7 +142,15 @@ class BikeDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_object(self, bike_id: str) -> Bike:
-        return get_object_or_404(Bike.objects.prefetch_related("builds"), pk=bike_id)
+        build_prefetch = Prefetch(
+            "builds",
+            queryset=BikeBuild.objects.select_related(
+                "base_bike",
+                "base_bike__owner",
+                "main_image",
+            ).prefetch_related("likes"),
+        )
+        return get_object_or_404(Bike.objects.prefetch_related(build_prefetch), pk=bike_id)
 
     @extend_schema(tags=["Bikes"], summary="자전거 상세 조회", responses=BikeDetailResponseSerializer)
     def get(self, request, bike_id: str):
@@ -194,7 +212,7 @@ class BikeBuildListCreateView(APIView):
         visibility = _get_visibility(request, default=None)
         queryset = (
             BikeBuild.objects.filter(base_bike__owner=request.user)
-            .select_related("base_bike", "main_image")
+            .select_related("base_bike", "base_bike__owner", "main_image")
             .prefetch_related("likes")
         )
 
@@ -238,7 +256,9 @@ class BikeBuildDetailView(APIView):
 
     def _get_object(self, build_id: str) -> BikeBuild:
         return get_object_or_404(
-            BikeBuild.objects.select_related("base_bike", "main_image").prefetch_related("images__image", "likes"),
+            BikeBuild.objects.select_related("base_bike", "base_bike__owner", "main_image").prefetch_related(
+                "images__image", "likes"
+            ),
             pk=build_id,
         )
 
@@ -343,7 +363,7 @@ class BikeBuildArchiveListView(APIView):
     def get(self, request):
         queryset = (
             BikeBuild.objects.filter(is_public=True)
-            .select_related("base_bike", "main_image")
+            .select_related("base_bike", "base_bike__owner", "main_image")
             .prefetch_related("likes")
             .order_by("-created_at")
         )
