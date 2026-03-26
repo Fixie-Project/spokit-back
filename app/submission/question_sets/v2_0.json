@@ -1,0 +1,467 @@
+{
+  "version": "v2_0",
+  "title": "Every Spoke Tells a Story",
+  "subtitle": "한 대의 픽시가 한 사람의 취향과 태도를 드러내는 순간",
+  "group_labels": {
+    "me": "It’s Me! · 자기소개",
+    "origin": "입문 · 계기",
+    "machine": "셋업 · 머신",
+    "ride": "주행 · 스트리트",
+    "detail": "디테일 · 집착 포인트",
+    "identity": "정체성 · 철학",
+    "bonus_free": "보너스 · 한마디 더",
+    "bonus_quick": "보너스 · 퀵픽",
+    "outro": "마무리"
+  },
+  "sections": {
+    "me": {
+      "lead": "당신에 대한 간단한 소개로 인터뷰를 시작합니다."
+    },
+    "origin": {
+      "lead": "픽시를 처음 타게 된 계기와, 이 문화에 끌린 이유를 들려주세요."
+    },
+    "machine": {
+      "lead": "이 자전거를 어떤 셋업으로 만들었고, 무엇을 고집했는지 이야기해주세요."
+    },
+    "ride": {
+      "lead": "길 위에서 이 픽시가 어떻게 움직이는지, 당신은 어떤 식으로 타는지 들려주세요."
+    },
+    "detail": {
+      "lead": "남들은 지나칠 수 있지만, 당신에게는 중요한 디테일과 미감을 기록해주세요."
+    },
+    "identity": {
+      "lead": "픽시가 당신의 취향, 습관, 태도에 어떤 변화를 남겼는지 이야기해주세요."
+    },
+    "bonus_free": {
+      "lead": "원한다면 조금 더 가볍거나 사적인 이야기를 덧붙여주세요."
+    },
+    "bonus_quick": {
+      "lead": "깊게 고민하지 말고, 직감적으로 골라주세요."
+    },
+    "outro": {
+      "lead": "인터뷰를 마무리하며 마지막으로 남기고 싶은 말을 적어주세요."
+    }
+  },
+  "cta": {
+    "primary": "이야기 저장하기",
+    "secondary": "나의 스포킷 기록하기"
+  },
+  "helper": {
+    "signature_tip": "Spokit은 라이더의 픽시와 그 안에 담긴 감각, 취향, 태도를 기록하는 아카이브입니다.",
+    "selection_tip": "최소 3개의 질문을 골라 답해주세요. 4~5개를 선택하면 더 좋은 인터뷰가 됩니다."
+  },
+  "share": {
+    "template": "내 스포킷은 ____ 입니다. #Spokit #FixedGear #픽시인터뷰"
+  },
+  "selection_rules": {
+    "min_select": 3,
+    "recommended_select": 4,
+    "max_select": 6,
+    "require_one_from_groups": ["outro"],
+    "non_selectable_groups": ["me"]
+  },
+  "non_selectable_groups": ["me"],
+  "require_one_from_groups": ["outro"],
+  "required_ids": ["me_1"],
+  "groups": {
+    "me": [
+      {
+        "id": "me_1",
+        "text": "간단히 자신을 소개해주세요.",
+        "placeholder": "이름, 활동명, 주로 타는 지역, 하고 있는 일 등을 편하게 적어주세요.",
+        "required": true,
+        "answer_type": "long_text",
+        "min_chars": 20,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["소개", "프로필"]
+      }
+    ],
+    "origin": [
+      {
+        "id": "origin_1",
+        "text": "픽시를 처음 타게 된 계기는 무엇이었나요?",
+        "placeholder": "처음 끌렸던 장면, 사람, 브랜드, 분위기 중 기억나는 것이 있다면 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["입문", "계기", "문화"]
+      },
+      {
+        "id": "origin_2",
+        "text": "수많은 자전거 중에서 굳이 픽시였던 이유는 무엇인가요?",
+        "placeholder": "속도감, 단순함, 룩, 문화, 감각 중 무엇이 가장 크게 다가왔는지 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["선택 이유", "픽시 매력"]
+      },
+      {
+        "id": "origin_3",
+        "text": "지금 타는 이 프레임을 고른 결정적 이유는 무엇이었나요?",
+        "placeholder": "첫인상, 브랜드, 지오메트리, 컬러, 분위기 중 마음을 움직인 포인트를 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": false,
+        "chips": ["프레임", "선택", "취향"]
+      },
+      {
+        "id": "origin_4",
+        "text": "픽시를 타기 전과 후를 나누는 기준점이 있다면 무엇인가요?",
+        "placeholder": "취향, 일상, 인간관계, 도시를 보는 시선, 몸 쓰는 방식의 변화도 좋습니다.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["변화", "시작", "태도"]
+      },
+      {
+        "id": "origin_custom",
+        "text": "입문과 관련해 더 남기고 싶은 이야기가 있다면 자유롭게 적어주세요.",
+        "placeholder": "처음 픽시를 접했던 순간이나 오래 기억에 남는 장면을 자유롭게 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 40,
+        "priority": "optional",
+        "recommended": false,
+        "custom": true,
+        "chips": ["자유 기록"]
+      }
+    ],
+    "machine": [
+      {
+        "id": "machine_1",
+        "text": "지금 셋업의 핵심은 무엇인가요?",
+        "placeholder": "예: 공격적인 퍼슈트, 편한 라이저, 밸런스형, 로우하고 단단한 느낌 등 한 문장으로 표현해주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["셋업", "무드", "콕핏"]
+      },
+      {
+        "id": "machine_2",
+        "text": "현재 기어비와 그 숫자를 고집하는 이유는 무엇인가요?",
+        "placeholder": "예: 49/17. 서울 시내에서 밀고 당기기 좋고, 내 다리와 가장 잘 맞는 느낌이 있어서요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["기어비", "주행 환경", "셋업"]
+      },
+      {
+        "id": "machine_3",
+        "text": "가장 먼저 고정한 부품은 무엇이었나요?",
+        "placeholder": "프레임, 휠셋, 크랭크, 바, 안장 중에서 절대 양보 못 한 포인트를 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 70,
+        "priority": "core",
+        "recommended": false,
+        "chips": ["부품", "우선순위", "집착"]
+      },
+      {
+        "id": "machine_4",
+        "text": "이 셋업에서 남들은 몰라도 본인은 만족하는 포인트가 있나요?",
+        "placeholder": "비율, 각도, 높이, 컬러 조합, 작은 파츠 하나라도 괜찮습니다. 보통 그런 게 진짜입니다.",
+        "answer_type": "long_text",
+        "min_chars": 70,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["디테일", "만족 포인트", "자기만 아는 요소"]
+      },
+      {
+        "id": "machine_custom",
+        "text": "셋업이나 조립 과정에서 더 남기고 싶은 디테일이 있다면 자유롭게 적어주세요.",
+        "placeholder": "시행착오, 고집, 포기하지 못했던 부품, 예산과 취향 사이의 싸움 등 무엇이든 좋습니다.",
+        "answer_type": "long_text",
+        "min_chars": 40,
+        "priority": "optional",
+        "recommended": false,
+        "custom": true,
+        "chips": ["자유 기록"]
+      }
+    ],
+    "ride": [
+      {
+        "id": "ride_1",
+        "text": "이 자전거로 처음 제대로 달렸을 때 어떤 느낌이었나요?",
+        "placeholder": "무서움, 해방감, 확신, 후회, 웃음 중 무엇에 가까웠는지 솔직하게 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["첫 주행", "감각", "인상"]
+      },
+      {
+        "id": "ride_2",
+        "text": "가장 좋아하는 스팟이나 코스가 있다면 어디인가요?",
+        "placeholder": "왜 하필 그 길을 좋아하는지, 시간대나 분위기까지 함께 적어주면 좋습니다.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["코스", "스팟", "도시"]
+      },
+      {
+        "id": "ride_3",
+        "text": "풀 가속 중 신호가 바뀌면 당신은 보통 어떤 선택을 하나요?",
+        "placeholder": "Skid, Flow, 포기, 우회. 어떤 선택이 가장 당신답다고 느껴지는지 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 60,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["판단", "주행 스타일", "반응"]
+      },
+      {
+        "id": "ride_4",
+        "text": "업힐에서 다리가 터질 때 머릿속에 드는 생각은 무엇인가요?",
+        "placeholder": "정복, 후회, 무념무상, 오기, 자존심 등 솔직하게 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 60,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["업힐", "멘탈", "라이딩 감각"]
+      },
+      {
+        "id": "ride_custom",
+        "text": "기억에 남는 라이딩 장면이나 에피소드가 있다면 자유롭게 적어주세요.",
+        "placeholder": "새벽, 비 오는 날, 크루 라이딩, 혼자 달린 밤 등 가장 선명한 장면을 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 40,
+        "priority": "optional",
+        "recommended": false,
+        "custom": true,
+        "chips": ["자유 기록"]
+      }
+    ],
+    "detail": [
+      {
+        "id": "detail_1",
+        "text": "이 자전거에서 가장 집착한 디테일은 무엇인가요?",
+        "placeholder": "색, 재질, 비율, 브랜드, 마감, 파츠 간의 톤 중 가장 신경 쓴 포인트를 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["디테일", "미감", "집착"]
+      },
+      {
+        "id": "detail_2",
+        "text": "남들은 지나치지만 본인은 꼭 보게 되는 포인트가 있나요?",
+        "placeholder": "스템 각도, 바 높이, 림 높이, 볼트, 크랭크 라인 같은 사소한 포인트도 좋습니다.",
+        "answer_type": "long_text",
+        "min_chars": 70,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["시선", "디테일", "자기만 아는 포인트"]
+      },
+      {
+        "id": "detail_3",
+        "text": "프레임이나 부품에 새겨진 ‘영광의 상처’가 있다면 들려주세요.",
+        "placeholder": "단순한 기스가 아니라, 기억이 붙은 흔적이라면 더 좋습니다.",
+        "answer_type": "long_text",
+        "min_chars": 70,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["상처", "기억", "서사"]
+      },
+      {
+        "id": "detail_4",
+        "text": "사진으로 남길 때 꼭 드러나야 하는 각도가 있나요?",
+        "placeholder": "드라이브사이드, 낮은 앵글, 헤드뱃지, 탑튜브 라인 등 가장 자신 있는 각도를 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 60,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["사진", "각도", "비주얼"]
+      },
+      {
+        "id": "detail_custom",
+        "text": "디테일과 미감에 대해 더 하고 싶은 말이 있다면 자유롭게 적어주세요.",
+        "placeholder": "‘이건 꼭 알아줬으면 좋겠다’ 싶은 포인트가 있다면 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 40,
+        "priority": "optional",
+        "recommended": false,
+        "custom": true,
+        "chips": ["자유 기록"]
+      }
+    ],
+    "identity": [
+      {
+        "id": "identity_1",
+        "text": "당신에게 픽시는 어떤 태도에 가깝나요?",
+        "placeholder": "교통수단, 운동, 패션, 집착, 해방감, 정체성 중 어디에 가까운지 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["정체성", "태도", "의미"]
+      },
+      {
+        "id": "identity_2",
+        "text": "픽시를 타면서 바뀐 습관이나 시선이 있나요?",
+        "placeholder": "도시를 보는 방식, 소비 취향, 옷차림, 몸을 쓰는 방식의 변화도 좋습니다.",
+        "answer_type": "long_text",
+        "min_chars": 80,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["변화", "습관", "시선"]
+      },
+      {
+        "id": "identity_3",
+        "text": "당신에게 ‘좋은 픽시’란 무엇인가요?",
+        "placeholder": "비싼 부품보다 더 중요한 기준이 있다면 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 70,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["기준", "철학", "취향"]
+      },
+      {
+        "id": "identity_4",
+        "text": "내일 지구가 멸망한다면 마지막으로 달리고 싶은 코스는 어디인가요?",
+        "placeholder": "그리고 왜 하필 그 코스여야 하는지도 함께 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 70,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["마지막 코스", "의미", "기억"]
+      },
+      {
+        "id": "identity_custom",
+        "text": "이 자전거가 자신에게 남긴 말을 자유롭게 적어주세요.",
+        "placeholder": "픽시가 당신에게 남긴 감정, 확신, 집착, 변화 등을 자유롭게 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 40,
+        "priority": "optional",
+        "recommended": false,
+        "custom": true,
+        "chips": ["자유 기록"]
+      }
+    ],
+    "bonus_free": [
+      {
+        "id": "bonus_free_1",
+        "text": "이 픽시에 이름을 붙인다면 뭐라고 부르고 싶나요?",
+        "placeholder": "직감적으로 떠오르는 이름이 있다면 적어주세요.",
+        "answer_type": "short_text",
+        "min_chars": 2,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["이름", "캐릭터"]
+      },
+      {
+        "id": "bonus_free_2",
+        "text": "이 자전거에 가장 잘 어울리는 음악이나 무드는 무엇인가요?",
+        "placeholder": "곡명, 장르, 아티스트, 시간대, 분위기 등 편하게 적어주세요.",
+        "answer_type": "short_text",
+        "min_chars": 2,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["음악", "무드", "분위기"]
+      },
+      {
+        "id": "bonus_free_3",
+        "text": "이 픽시가 말을 할 수 있다면 당신에게 뭐라고 할까요?",
+        "placeholder": "장난스럽게 적어도 좋고, 진지하게 적어도 좋습니다.",
+        "answer_type": "short_text",
+        "min_chars": 2,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["의인화", "한마디"]
+      },
+      {
+        "id": "bonus_free_4",
+        "text": "이 픽시를 사람에 비유한다면 어떤 성격일까요?",
+        "placeholder": "차갑다, 예민하다, 단단하다, 가볍게 웃는다 같은 느낌도 좋습니다.",
+        "answer_type": "short_text",
+        "min_chars": 2,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["성격", "비유"]
+      }
+    ],
+    "bonus_quick": [
+      {
+        "id": "quick_1",
+        "text": "Chrome vs Matte Black",
+        "answer_type": "choice",
+        "priority": "optional",
+        "recommended": false,
+        "options": ["Chrome", "Matte Black"],
+        "chips": ["퀵픽", "스타일"]
+      },
+      {
+        "id": "quick_2",
+        "text": "NJS 감성 vs Full Carbon Aero",
+        "answer_type": "choice",
+        "priority": "optional",
+        "recommended": false,
+        "options": ["NJS 감성", "Full Carbon Aero"],
+        "chips": ["퀵픽", "프레임 취향"]
+      },
+      {
+        "id": "quick_3",
+        "text": "Clipless vs Toe Clip + Vans",
+        "answer_type": "choice",
+        "priority": "optional",
+        "recommended": false,
+        "options": ["Clipless", "Toe Clip + Vans"],
+        "chips": ["퀵픽", "슈즈"]
+      },
+      {
+        "id": "quick_4",
+        "text": "Solo Dawn Ride vs Crew Night Ride",
+        "answer_type": "choice",
+        "priority": "optional",
+        "recommended": false,
+        "options": ["Solo Dawn Ride", "Crew Night Ride"],
+        "chips": ["퀵픽", "라이딩 스타일"]
+      },
+      {
+        "id": "quick_5",
+        "text": "Skid vs Flow",
+        "answer_type": "choice",
+        "priority": "optional",
+        "recommended": false,
+        "options": ["Skid", "Flow"],
+        "chips": ["퀵픽", "주행 스타일"]
+      }
+    ],
+    "outro": [
+      {
+        "id": "outro_1",
+        "text": "이 인터뷰를 마치며 마지막으로 남기고 싶은 말이 있나요?",
+        "placeholder": "오늘 이 기록을 남기며 든 생각이나, 이 자전거와 함께 계속 이어가고 싶은 마음을 적어주세요.",
+        "answer_type": "long_text",
+        "min_chars": 40,
+        "priority": "core",
+        "recommended": true,
+        "chips": ["마무리", "한마디"]
+      },
+      {
+        "id": "outro_2",
+        "text": "이 픽시에게 마지막으로 한마디 한다면 뭐라고 말하고 싶나요?",
+        "placeholder": "고맙다, 더 타자, 아직 끝난 거 아니다 같은 말도 좋습니다.",
+        "answer_type": "short_text",
+        "min_chars": 2,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["픽시에게", "마지막 말"]
+      },
+      {
+        "id": "outro_3",
+        "text": "이 인터뷰를 읽게 될 다른 라이더에게 남기고 싶은 말이 있나요?",
+        "placeholder": "짧은 메시지, 인사, 응원, 혹은 자신만의 태도를 적어주세요.",
+        "answer_type": "short_text",
+        "min_chars": 2,
+        "priority": "optional",
+        "recommended": false,
+        "chips": ["독자에게", "메시지"]
+      }
+    ]
+  }
+}
