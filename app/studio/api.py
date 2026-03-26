@@ -149,7 +149,7 @@ class StudioSubmissionListAPIView(views.APIView):
     )
     def get(self, request) -> Response:
         status_filter = request.query_params.get("status")
-        qs = Submission.objects.select_related("user", "bike", "build").prefetch_related("images")
+        qs = Submission.objects.select_related("user", "bike", "build", "build__base_bike")
         if status_filter:
             qs = qs.filter(status=status_filter)
         qs = qs.order_by("-created_at")
@@ -164,7 +164,7 @@ class StudioSubmissionDetailAPIView(views.APIView):
 
     def get_object(self, pk: str) -> Submission:
         return get_object_or_404(
-            Submission.objects.select_related("bike", "build").prefetch_related("images"),
+            Submission.objects.select_related("bike", "build", "build__base_bike"),
             pk=pk,
         )
 
